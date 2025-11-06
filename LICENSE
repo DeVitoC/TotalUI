@@ -1,0 +1,35 @@
+Proprietary Source-Available License
+
+Copyright (c) 2025 Christopher DeVito
+
+This license applies to the contents of this addon, EXCLUDING third-party
+resources located in the Libraries/ folder, which are licensed under their
+own respective licenses (see ThirdPartyNotices.md).
+
+GRANT OF LICENSE:
+
+Subject to the terms and conditions of this license, you are granted the
+following rights:
+
+PERMITTED:
+- Installing and using the Software as a World of Warcraft addon for personal use
+- Viewing the source code for educational purposes
+- Studying the architecture and implementation
+- Learning from the code structure and design patterns
+
+PROHIBITED WITHOUT EXPRESS WRITTEN PERMISSION:
+- Modifying, adapting, or creating derivative works based on the Software
+- Copying or reproducing the Software for distribution to others
+- Distributing, publishing, sublicensing, or selling the Software or any portion thereof
+- Incorporating any part of the Software into other projects or addons
+- Redistributing the Software through any addon distribution platform or repository
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For licensing inquiries or permission requests, please open an issue on the
+project's GitHub repository.

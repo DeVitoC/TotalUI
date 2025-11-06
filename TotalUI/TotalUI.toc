@@ -1,0 +1,81 @@
+## Interface: 110002
+## Title: |cff1784d1TotalUI|r
+## Author: Your Name
+## Version: 0.1.0
+## Notes: A comprehensive UI replacement addon
+## SavedVariables: TotalUIDB
+## OptionalDeps: LibStub, Ace3, LibSharedMedia-3.0, LibActionButton-1.0
+## X-Category: UI Overhaul
+## X-Website: https://github.com/yourname/TotalUI
+## X-Curse-Project-ID:
+## X-WoWI-ID:
+## Category-enUS: UI Overhaul
+## Category-deDE: UI-Überholung
+## Category-esES: Renovación de la UI
+## Category-esMX: Renovación de la UI
+## Category-itIT: Revisione dell'UI
+## Category-frFR: Révision de l'UI
+## Category-ptBR: Renovação da UI
+## Category-ruRU: Переработка интерфейса
+## Category-koKR: UI 개편
+## Category-zhCN: UI重构
+## Category-zhTW: UI重構
+## Group: TotalUI
+
+# Libraries
+Libraries\LibStub\LibStub.lua
+# Ace3 Libraries (will be added when integrated)
+# Libraries\Ace3\...
+# LibSharedMedia (will be added when integrated)
+# Libraries\LibSharedMedia\...
+# LibActionButton (will be added when integrated)
+# Libraries\LibActionButton\...
+
+# Core - Must load first
+Core\Init.lua
+Core\Constants.lua
+Core\Compatibility.lua
+Core\Utilities.lua
+Core\API.lua
+Core\Events.lua
+Core\Defaults\Private.lua
+Core\Defaults\Global.lua
+Core\Defaults\Profile.lua
+Core\LibraryLoader.lua
+
+# Modules - Load after Core
+# Phase 1: ActionBars
+Modules\ActionBars\ActionBars.lua
+
+# Phase 2: UnitFrames
+Modules\UnitFrames\UnitFrames.lua
+
+# Phase 3: Nameplates
+Modules\Nameplates\Nameplates.lua
+
+# Phase 4: Bags
+Modules\Bags\Bags.lua
+
+# Phase 5: Chat
+Modules\Chat\Chat.lua
+
+# Phase 6: DataTexts
+Modules\DataTexts\DataTexts.lua
+
+# Phase 7: DataBars
+Modules\DataBars\DataBars.lua
+
+# Phase 8: Auras
+Modules\Auras\Auras.lua
+
+# Phase 9: Tooltips
+Modules\Tooltip\Tooltip.lua
+
+# Phase 10: Maps
+Modules\Maps\Maps.lua
+
+# Phase 11: Skins
+Modules\Skins\Skins.lua
+
+# Phase 12: Miscellaneous Features
+Modules\Misc\Misc.lua

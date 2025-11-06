@@ -1,0 +1,100 @@
+# Local development documentation (not for repo)
+ADDON_DEVELOPMENT_ACTION_PLAN.md
+ELVUI_FEATURES_OVERVIEW.md
+PHASE0_COMPLETE.md
+
+# Libraries (should be downloaded separately - see LIBRARIES.md)
+TotalUI/Libraries/LibStub/*
+!TotalUI/Libraries/LibStub/.gitkeep
+TotalUI/Libraries/Ace3/*
+!TotalUI/Libraries/Ace3/.gitkeep
+TotalUI/Libraries/LibSharedMedia/*
+!TotalUI/Libraries/LibSharedMedia/.gitkeep
+TotalUI/Libraries/LibActionButton/*
+!TotalUI/Libraries/LibActionButton/.gitkeep
+
+# Media files (keep structure but ignore actual media files until added)
+# TotalUI/Media/Fonts/*
+# TotalUI/Media/Textures/*
+# TotalUI/Media/Sounds/*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# IDE / Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.project
+.settings/
+.classpath
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*.swp
+*.swo
+*~
+
+# Packager output
+*.zip
+*.tar.gz
+*.7z
+
+# Testing
+test/
+tests/
+*.test.lua
+
+# Build artifacts
+build/
+dist/
+release/
+
+# Screenshots (temporary debug screenshots)
+*.png
+*.jpg
+*.jpeg
+!TotalUI/Media/Textures/*.png
+!TotalUI/Media/Textures/*.jpg
+!TotalUI/Media/Textures/*.tga
