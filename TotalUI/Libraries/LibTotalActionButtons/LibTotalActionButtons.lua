@@ -279,6 +279,357 @@ print(string.format("|cff1784d1TotalUI|r: %s loaded (%s)", LAB.VERSION_STRING, v
 -- CONSTANTS
 -----------------------------------
 
+-- Button type enum (Phase 2 Step 2.1)
+LAB.ButtonType = {
+    ACTION = "action",
+    SPELL = "spell",
+    ITEM = "item",
+    MACRO = "macro",
+    CUSTOM = "custom",
+    EMPTY = "empty",
+}
+
+-----------------------------------
+-- BUTTON TYPE: ACTION (Phase 2 Step 2.2)
+-----------------------------------
+
+local ActionTypeUpdateFunctions = {
+    -- Query functions
+    HasAction = function(self)
+        return HasAction(self.buttonAction)
+    end,
+
+    GetActionTexture = function(self)
+        return GetActionTexture(self.buttonAction)
+    end,
+
+    GetActionText = function(self)
+        return GetActionText(self.buttonAction)
+    end,
+
+    GetActionCount = function(self)
+        return GetActionCount(self.buttonAction)
+    end,
+
+    GetActionCharges = function(self)
+        return LAB.Compat.GetActionCharges(self.buttonAction)
+    end,
+
+    -- State functions
+    IsInRange = function(self)
+        return IsActionInRange(self.buttonAction)
+    end,
+
+    IsUsableAction = function(self)
+        return IsUsableAction(self.buttonAction)
+    end,
+
+    IsCurrentAction = function(self)
+        return IsCurrentAction(self.buttonAction)
+    end,
+
+    IsAutoRepeatAction = function(self)
+        return IsAutoRepeatAction(self.buttonAction)
+    end,
+
+    IsAttackAction = function(self)
+        return IsAttackAction(self.buttonAction)
+    end,
+
+    IsEquippedAction = function(self)
+        return IsEquippedAction(self.buttonAction)
+    end,
+
+    IsConsumableAction = function(self)
+        return IsConsumableAction(self.buttonAction)
+    end,
+
+    -- Cooldown functions
+    GetCooldown = function(self)
+        return GetActionCooldown(self.buttonAction)
+    end,
+
+    GetLossOfControlCooldown = function(self)
+        return LAB.Compat.GetActionLossOfControlCooldown(self.buttonAction)
+    end,
+
+    -- Spell ID for proc detection
+    GetSpellId = function(self)
+        local actionType, id = GetActionInfo(self.buttonAction)
+        if actionType == "spell" or actionType == "macro" then
+            return id
+        end
+        return nil
+    end,
+}
+
+LAB.ActionTypeUpdateFunctions = ActionTypeUpdateFunctions
+
+-----------------------------------
+-- BUTTON TYPE: SPELL (Phase 2 Step 2.3)
+-----------------------------------
+
+-- Helper: Find spell in spellbook
+local function FindSpellBookSlotBySpellID(spellID)
+    if not spellID then return nil end
+
+    if WoWRetail then
+        -- Retail has built-in function
+        return FindSpellBookSlotBySpellID(spellID, false)
+    else
+        -- Classic: manual scan
+        for i = 1, MAX_SKILLLINE_TABS do
+            local name, texture, offset, numSpells = GetSpellTabInfo(i)
+            if not name then break end
+            for j = offset + 1, offset + numSpells do
+                local spellName, spellSubName = GetSpellBookItemName(j, BOOKTYPE_SPELL)
+                local currentSpellID = select(2, GetSpellBookItemInfo(j, BOOKTYPE_SPELL))
+                if currentSpellID == spellID then
+                    return j, BOOKTYPE_SPELL
+                end
+            end
+        end
+        return nil
+    end
+end
+
+local SpellTypeUpdateFunctions = {
+    HasAction = function(self)
+        return true  -- Spell buttons always have an action
+    end,
+
+    GetActionTexture = function(self)
+        return GetSpellTexture(self.buttonAction)
+    end,
+
+    GetActionText = function(self)
+        return ""  -- Spells don't have text like macros
+    end,
+
+    GetActionCount = function(self)
+        if LAB.Compat.GetSpellCount then
+            return LAB.Compat.GetSpellCount(self.buttonAction)
+        end
+        return 0
+    end,
+
+    GetActionCharges = function(self)
+        if LAB.Compat.GetSpellCharges then
+            return LAB.Compat.GetSpellCharges(self.buttonAction)
+        end
+        return nil
+    end,
+
+    IsInRange = function(self)
+        local slot = FindSpellBookSlotBySpellID(self.buttonAction)
+        if slot then
+            local inRange = IsSpellInRange(slot, BOOKTYPE_SPELL, "target")
+            if inRange == 1 then
+                return true
+            elseif inRange == 0 then
+                return false
+            end
+        end
+        return nil
+    end,
+
+    IsUsableAction = function(self)
+        return IsUsableSpell(self.buttonAction)
+    end,
+
+    IsCurrentAction = function(self)
+        return IsCurrentSpell(self.buttonAction)
+    end,
+
+    IsAutoRepeatAction = function(self)
+        local slot = FindSpellBookSlotBySpellID(self.buttonAction)
+        if slot then
+            return IsAutoRepeatSpell(slot, BOOKTYPE_SPELL)
+        end
+        return false
+    end,
+
+    IsAttackAction = function(self)
+        local slot = FindSpellBookSlotBySpellID(self.buttonAction)
+        if slot then
+            return IsAttackSpell(slot, BOOKTYPE_SPELL)
+        end
+        return false
+    end,
+
+    IsEquippedAction = function(self)
+        return false  -- Spells are never equipped
+    end,
+
+    IsConsumableAction = function(self)
+        return IsConsumableSpell(self.buttonAction)
+    end,
+
+    GetCooldown = function(self)
+        return GetSpellCooldown(self.buttonAction)
+    end,
+
+    GetLossOfControlCooldown = function(self)
+        if LAB.Compat.GetSpellLossOfControlCooldown then
+            return LAB.Compat.GetSpellLossOfControlCooldown(self.buttonAction)
+        end
+        return nil
+    end,
+
+    GetSpellId = function(self)
+        return self.buttonAction  -- Button action IS the spell ID
+    end,
+}
+
+LAB.SpellTypeUpdateFunctions = SpellTypeUpdateFunctions
+
+-----------------------------------
+-- BUTTON TYPE: ITEM (Phase 2 Step 2.4)
+-----------------------------------
+
+local ItemTypeUpdateFunctions = {
+    HasAction = function(self)
+        return true  -- Item buttons always have an action
+    end,
+
+    GetActionTexture = function(self)
+        return GetItemIcon(self.buttonAction)
+    end,
+
+    GetActionText = function(self)
+        local itemName = GetItemInfo(self.buttonAction)
+        return itemName or ""
+    end,
+
+    GetActionCount = function(self)
+        -- Include bank and charges
+        return GetItemCount(self.buttonAction, nil, true)
+    end,
+
+    GetActionCharges = function(self)
+        -- Items with on-use effects might have charges
+        local hasSpell = GetItemSpell(self.buttonAction)
+        if hasSpell and LAB.Compat.GetItemCharges then
+            return LAB.Compat.GetItemCharges(self.buttonAction)
+        end
+        return nil
+    end,
+
+    IsInRange = function(self)
+        return IsItemInRange(self.buttonAction, "target")
+    end,
+
+    IsUsableAction = function(self)
+        return IsUsableItem(self.buttonAction)
+    end,
+
+    IsCurrentAction = function(self)
+        return IsCurrentItem(self.buttonAction)
+    end,
+
+    IsAutoRepeatAction = function(self)
+        return false  -- Items don't auto-repeat
+    end,
+
+    IsAttackAction = function(self)
+        return false  -- Items aren't attack actions
+    end,
+
+    IsEquippedAction = function(self)
+        return IsEquippedItem(self.buttonAction)
+    end,
+
+    IsConsumableAction = function(self)
+        return IsConsumableItem(self.buttonAction)
+    end,
+
+    GetCooldown = function(self)
+        return GetItemCooldown(self.buttonAction)
+    end,
+
+    GetLossOfControlCooldown = function(self)
+        return nil  -- Items don't have LoC cooldowns
+    end,
+
+    GetSpellId = function(self)
+        -- Get spell ID from item's on-use effect
+        local spellName, spellID = GetItemSpell(self.buttonAction)
+        return spellID
+    end,
+}
+
+LAB.ItemTypeUpdateFunctions = ItemTypeUpdateFunctions
+
+-----------------------------------
+-- BUTTON TYPE: MACRO (Phase 2 Step 2.5)
+-----------------------------------
+
+local MacroTypeUpdateFunctions = {
+    HasAction = function(self)
+        return true
+    end,
+
+    GetActionTexture = function(self)
+        local name, iconTexture = GetMacroInfo(self.buttonAction)
+        return iconTexture
+    end,
+
+    GetActionText = function(self)
+        local name = GetMacroInfo(self.buttonAction)
+        return name or ""
+    end,
+
+    GetActionCount = function(self)
+        return 0  -- Macros don't have counts
+    end,
+
+    GetActionCharges = function(self)
+        return nil  -- Macros don't have charges
+    end,
+
+    IsInRange = function(self)
+        return nil  -- Can't determine range for macros
+    end,
+
+    IsUsableAction = function(self)
+        return true, false  -- Always usable
+    end,
+
+    IsCurrentAction = function(self)
+        return false  -- Macros don't track current state
+    end,
+
+    IsAutoRepeatAction = function(self)
+        return false
+    end,
+
+    IsAttackAction = function(self)
+        return false
+    end,
+
+    IsEquippedAction = function(self)
+        return false
+    end,
+
+    IsConsumableAction = function(self)
+        return false
+    end,
+
+    GetCooldown = function(self)
+        return 0, 0, 0  -- Macros show no cooldown
+    end,
+
+    GetLossOfControlCooldown = function(self)
+        return nil
+    end,
+
+    GetSpellId = function(self)
+        return nil  -- Macros don't have spell IDs
+    end,
+}
+
+LAB.MacroTypeUpdateFunctions = MacroTypeUpdateFunctions
+
 -- Action button state colors
 LAB.COLORS = {
     NORMAL = {1, 1, 1},
@@ -346,6 +697,11 @@ function LAB:CreateButton(actionID, name, parent, config)
     button.id = actionID
     button.config = config or {}
     button.actionID = actionID
+
+    -- Phase 2: Button type system
+    button.buttonType = LAB.ButtonType.ACTION  -- Default to action type
+    button.buttonAction = actionID
+    button.UpdateFunctions = LAB.ActionTypeUpdateFunctions  -- Phase 2 Step 2.2
 
     -- Initialize button
     self:InitializeButton(button)
@@ -424,6 +780,104 @@ function LAB:RegisterButton(button)
 
     -- Initial update
     self:UpdateButton(button)
+end
+
+-----------------------------------
+-- TYPE-SPECIFIC BUTTON CREATION (Phase 2 Steps 2.3-2.6)
+-----------------------------------
+
+function LAB:CreateSpellButton(spellID, name, parent, config)
+    if not LAB.Validate.Number(spellID, "spellID", "CreateSpellButton", 1) then
+        return nil
+    end
+
+    self:DebugPrint(string.format("Creating spell button: %s (spell %d)", name, spellID))
+
+    -- Create base button
+    local button = self:CreateButton(spellID, name, parent, config)
+    if not button then return nil end
+
+    -- Set type to spell
+    button.buttonType = LAB.ButtonType.SPELL
+    button.buttonAction = spellID
+    button.UpdateFunctions = LAB.SpellTypeUpdateFunctions
+
+    -- Set secure attributes for spell
+    button:SetAttribute("type", "spell")
+    button:SetAttribute("spell", spellID)
+
+    -- Initial update
+    self:UpdateButton(button)
+
+    return button
+end
+
+function LAB:CreateItemButton(itemID, name, parent, config)
+    if not LAB.Validate.Number(itemID, "itemID", "CreateItemButton", 1) then
+        return nil
+    end
+
+    self:DebugPrint(string.format("Creating item button: %s (item %d)", name, itemID))
+
+    local button = self:CreateButton(itemID, name, parent, config)
+    if not button then return nil end
+
+    button.buttonType = LAB.ButtonType.ITEM
+    button.buttonAction = itemID
+    button.UpdateFunctions = LAB.ItemTypeUpdateFunctions
+
+    button:SetAttribute("type", "item")
+    button:SetAttribute("item", itemID)
+
+    self:UpdateButton(button)
+    return button
+end
+
+function LAB:CreateMacroButton(macroID, name, parent, config)
+    if not LAB.Validate.Number(macroID, "macroID", "CreateMacroButton", 1) then
+        return nil
+    end
+
+    self:DebugPrint(string.format("Creating macro button: %s (macro %d)", name, macroID))
+
+    local button = self:CreateButton(macroID, name, parent, config)
+    if not button then return nil end
+
+    button.buttonType = LAB.ButtonType.MACRO
+    button.buttonAction = macroID
+    button.UpdateFunctions = LAB.MacroTypeUpdateFunctions
+
+    button:SetAttribute("type", "macro")
+    button:SetAttribute("macro", macroID)
+
+    self:UpdateButton(button)
+    return button
+end
+
+function LAB:CreateCustomButton(id, name, parent, config, updateFunctions)
+    if not LAB.Validate.Number(id, "id", "CreateCustomButton", 1) then
+        return nil
+    end
+
+    if not updateFunctions or type(updateFunctions) ~= "table" then
+        self:Error("CreateCustomButton: updateFunctions must be a table!", 2)
+        return nil
+    end
+
+    self:DebugPrint(string.format("Creating custom button: %s (id %d)", name, id))
+
+    local button = self:CreateButton(id, name, parent, config)
+    if not button then return nil end
+
+    button.buttonType = LAB.ButtonType.CUSTOM
+    button.buttonAction = id
+    button.UpdateFunctions = updateFunctions
+
+    -- Custom buttons require user to set attributes
+    -- No automatic attribute setting
+
+    self:UpdateButton(button)
+    return button
 end
 
 -----------------------------------
