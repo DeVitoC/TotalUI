@@ -63,7 +63,16 @@ if LibStub then
     end
 
     -- Load LibActionButton (for Phase 1)
-    TryLoadLib("LibActionButton-1.0")
+    -- Try standard version first, then ls- fork
+    local LAB = TryLoadLib("LibActionButton-1.0")
+    if not LAB then
+        LAB = TryLoadLib("LibActionButton-1.0-ls")
+        if LAB then
+            -- Store under standard name for consistency
+            E.Libs["LibActionButton-1.0"] = LAB
+            E.LibsLoaded.LibActionButton = true
+        end
+    end
 else
     E:Print("Warning: LibStub not found. Some features will be limited.")
 end

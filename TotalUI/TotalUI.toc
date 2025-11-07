@@ -4,7 +4,7 @@
 ## Version: 0.1.0
 ## Notes: A comprehensive UI replacement addon
 ## SavedVariables: TotalUIDB
-## OptionalDeps: LibStub, Ace3, LibSharedMedia-3.0, LibActionButton-1.0
+## OptionalDeps: LibStub, Ace3, LibSharedMedia-3.0
 ## X-Category: UI Overhaul
 ## X-Website: https://github.com/yourname/TotalUI
 ## X-Curse-Project-ID:
@@ -24,12 +24,11 @@
 
 # Libraries
 Libraries\LibStub\LibStub.lua
+
 # Ace3 Libraries (will be added when integrated)
 # Libraries\Ace3\...
 # LibSharedMedia (will be added when integrated)
 # Libraries\LibSharedMedia\...
-# LibActionButton (will be added when integrated)
-# Libraries\LibActionButton\...
 
 # Core - Must load first
 Core\Init.lua
@@ -43,8 +42,12 @@ Core\Defaults\Global.lua
 Core\Defaults\Profile.lua
 Core\LibraryLoader.lua
 
+# LibTotalActionButtons (TotalUI's custom action button implementation - must load after Core)
+Libraries\LibTotalActionButtons\LibTotalActionButtons.lua
+
 # Modules - Load after Core
 # Phase 1: ActionBars
+Modules\ActionBars\ActionBar.lua
 Modules\ActionBars\ActionBars.lua
 
 # Phase 2: UnitFrames

@@ -271,10 +271,408 @@ Misc         true
 
 ---
 
-## Phase 1: ActionBars Tests
-**Status:** Not yet implemented
+## Phase 1A: ActionBars - Bar 1 Tests
 
-_Tests will be added when Phase 1 is complete_
+### Prerequisites
+LibActionButton-1.0 must be installed in `TotalUI/Libraries/LibActionButton-1.0/` and loaded in the .toc file.
+
+---
+
+### Test 18: LibActionButton Loaded
+**Command:** `/run print("LAB:", TotalUI.Libs["LibActionButton-1.0"] and "Loaded" or "Missing")`
+
+**Expected:** Prints `LAB: Loaded`
+
+**Result:**
+- ✅ **Pass** if prints "LAB: Loaded"
+- ❌ **Fail** if prints "LAB: Missing" (install LibActionButton-1.0)
+
+---
+
+### Test 19: ActionBars Module Initialized
+**Command:** `/run local AB = TotalUI:GetModule("ActionBars"); print("Initialized:", AB and AB.initialized or "false")`
+
+**Expected:** Prints `Initialized: true`
+
+**Result:**
+- ✅ **Pass** if prints "Initialized: true"
+- ❌ **Fail** if prints "false" or error
+
+---
+
+### Test 20: Bar 1 Created
+**Command:** `/run local AB = TotalUI:GetModule("ActionBars"); print("Bar 1:", AB.bars[1] and "Created" or "Missing")`
+
+**Expected:** Prints `Bar 1: Created`
+
+**Result:**
+- ✅ **Pass** if prints "Bar 1: Created"
+- ❌ **Fail** if prints "Bar 1: Missing"
+
+---
+
+### Test 21: Bar 1 Visible
+**Steps:**
+1. Look at the bottom of your screen
+2. You should see a bar with 12 buttons
+
+**Expected:**
+- Bar 1 appears at bottom center of screen
+- 12 buttons in a horizontal row
+- Buttons show your current actions from default action bar
+- Keybinds visible (1, 2, 3, etc.)
+
+**Result:**
+- ✅ **Pass** if Bar 1 visible with 12 buttons
+- ❌ **Fail** if no bar or wrong number of buttons
+
+---
+
+### Test 22: Bar 1 Buttons Count
+**Command:** `/run local AB = TotalUI:GetModule("ActionBars"); print("Buttons:", #AB.bars[1].buttons)`
+
+**Expected:** Prints `Buttons: 12`
+
+**Result:**
+- ✅ **Pass** if prints 12
+- ❌ **Fail** if different number or error
+
+---
+
+### Test 23: Drag and Drop Actions
+**Steps:**
+1. Open spellbook
+2. Drag a spell to one of the Bar 1 buttons
+3. Click the button to cast the spell
+
+**Expected:**
+- Spell icon appears on button
+- Clicking button casts the spell
+- Keybind works (pressing the key casts spell)
+
+**Result:**
+- ✅ **Pass** if drag/drop works and button functions
+- ❌ **Fail** if can't drag or button doesn't work
+
+---
+
+### Test 24: Button Cooldowns
+**Steps:**
+1. Place a spell with cooldown on a button
+2. Cast the spell
+3. Watch the button
+
+**Expected:**
+- Cooldown spiral animation appears
+- Cooldown timer counts down
+- Button becomes usable again when cooldown ends
+
+**Result:**
+- ✅ **Pass** if cooldown displays correctly
+- ❌ **Fail** if no cooldown animation
+
+---
+
+### Test 25: Button States - Out of Range
+**Steps:**
+1. Place a ranged attack spell on a button
+2. Target an enemy
+3. Walk out of range
+
+**Expected:**
+- Button turns red when out of range
+- Button returns to normal color when in range
+
+**Result:**
+- ✅ **Pass** if button color changes with range
+- ❌ **Fail** if button doesn't change color
+
+---
+
+### Test 26: Button States - Not Enough Power
+**Steps:**
+1. Place an expensive spell on a button
+2. Wait until you don't have enough mana/energy/rage
+
+**Expected:**
+- Button turns blue when insufficient power
+- Button returns to normal when power restored
+
+**Result:**
+- ✅ **Pass** if button color changes with power
+- ❌ **Fail** if button doesn't change color
+
+---
+
+### Test 27: Bar 1 Configuration - Button Size
+**Steps:**
+1. Run: `/run TotalUI.db.actionbar.bar1.buttonSize = 40`
+2. Run: `/reload`
+
+**Expected:**
+- Buttons are larger (40x40 pixels)
+- Bar adjusts size accordingly
+
+**Result:**
+- ✅ **Pass** if buttons are larger
+- ❌ **Fail** if no change
+
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32` and `/reload`
+
+---
+
+### Test 28: Bar 1 Configuration - Buttons Per Row
+**Steps:**
+1. Run: `/run TotalUI.db.actionbar.bar1.buttonsPerRow = 6`
+2. Run: `/reload`
+
+**Expected:**
+- Buttons arrange in 2 rows of 6
+- Bar is wider and taller
+
+**Result:**
+- ✅ **Pass** if buttons arrange in 2 rows
+- ❌ **Fail** if still single row
+
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonsPerRow = 12` and `/reload`
+
+---
+
+### Test 29: Bar 1 Configuration - Mouseover
+**Steps:**
+1. Run: `/run TotalUI.db.actionbar.bar1.mouseover = true; TotalUI.db.actionbar.bar1.mouseoverAlpha = 0.2`
+2. Run: `/reload`
+3. Move mouse away from bar
+4. Move mouse over bar
+
+**Expected:**
+- Bar fades to 20% opacity when mouse away
+- Bar fades to 100% opacity when mouse over
+- Smooth fade transition
+
+**Result:**
+- ✅ **Pass** if mouseover fade works
+- ❌ **Fail** if no fade or instant transition
+
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.mouseover = false` and `/reload`
+
+---
+
+### Test 30: Bar 1 Configuration - Show Grid
+**Steps:**
+1. Remove all actions from Bar 1 (right-click buttons)
+2. Run: `/run TotalUI.db.actionbar.bar1.showGrid = false`
+3. Run: `/reload`
+
+**Expected:**
+- Empty buttons hide completely
+- Buttons with actions still visible
+
+**Result:**
+- ✅ **Pass** if empty buttons hide
+- ❌ **Fail** if empty buttons still show
+
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.showGrid = true` and `/reload` then re-add actions
+
+---
+
+### Test 31: Combat Safety - Config Changes
+**Steps:**
+1. Attack a training dummy (enter combat)
+2. While in combat, run: `/run TotalUI.db.actionbar.bar1.buttonSize = 50`
+3. While still in combat, run: `/reload`
+4. Check if button size changed
+
+**Expected:**
+- During combat: Changes are queued
+- Message: "Bar 1: Changes will apply after combat"
+- After leaving combat: Changes apply automatically
+
+**Result:**
+- ✅ **Pass** if changes queue and apply after combat
+- ❌ **Fail** if changes apply during combat or never apply
+
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32` and `/reload`
+
+---
+
+### Test 32: Combat Safety - No Errors
+**Steps:**
+1. Enter combat (attack dummy)
+2. Try various actions:
+   - Drag a spell to button
+   - Click buttons
+   - Use keybinds
+   - Run `/totalui actionbar status`
+3. Check for Lua errors
+
+**Expected:** No Lua errors during combat
+
+**Result:**
+- ✅ **Pass** if no errors during combat
+- ❌ **Fail** if Lua errors occur
+
+---
+
+### Test 33: Visibility Driver - Vehicle
+**Steps:**
+1. Enter a vehicle (find a demolisher, siege engine, or vehicle quest)
+2. Check if Bar 1 is visible
+
+**Expected:**
+- Bar 1 hides when in vehicle
+- Bar 1 reappears when exiting vehicle
+
+**Result:**
+- ✅ **Pass** if bar hides/shows correctly
+- ❌ **Fail** if bar doesn't hide or doesn't reappear
+
+---
+
+### Test 34: Class Paging (Class-Specific)
+**For Druids:**
+**Steps:**
+1. Shift to Bear Form
+2. Shift to Cat Form
+3. Shift back to Caster Form
+
+**Expected:**
+- Bar 1 shows different actions in each form
+- Actions change immediately when shifting
+
+**For Warriors:**
+**Steps:**
+1. Change stances (Battle/Defensive/Berserker)
+
+**Expected:**
+- Bar 1 shows different actions in each stance
+
+**For Other Classes:**
+**Expected:**
+- Bar 1 shows consistent actions (no form/stance paging)
+
+**Result:**
+- ✅ **Pass** if paging works for your class
+- ❌ **Fail** if actions don't change when they should
+- ⚠️ **N/A** if your class doesn't have forms/stances
+
+---
+
+### Test 35: Slash Commands - Toggle Bar
+**Command:** `/totalui actionbar toggle 1`
+
+**Expected:**
+- First time: "Bar 1: Disabled" and bar hides
+- Second time: "Bar 1: Enabled" and bar appears
+
+**Result:**
+- ✅ **Pass** if toggle works both ways
+- ❌ **Fail** if command doesn't work or bar doesn't hide/show
+
+---
+
+### Test 36: Slash Commands - Status
+**Command:** `/totalui actionbar status`
+
+**Expected:**
+```
+TotalUI: ActionBar Status:
+TotalUI:   Bar 1: Enabled
+TotalUI:   Bar 2: Enabled
+TotalUI:   Bar 3: Enabled
+TotalUI:   Bar 4: Enabled
+TotalUI:   Bar 5: Enabled
+```
+
+**Result:**
+- ✅ **Pass** if shows status for all 5 bars
+- ❌ **Fail** if command doesn't work or incomplete list
+
+---
+
+### Test 37: Database Persistence
+**Steps:**
+1. Change setting: `/run TotalUI.db.actionbar.bar1.buttonSize = 40`
+2. Run: `/reload`
+3. Check: `/run print(TotalUI.db.actionbar.bar1.buttonSize)`
+4. Log out completely
+5. Log back in
+6. Check again: `/run print(TotalUI.db.actionbar.bar1.buttonSize)`
+
+**Expected:**
+- After reload: Prints `40`
+- After logout/login: Prints `40`
+
+**Result:**
+- ✅ **Pass** if setting persists across logout
+- ❌ **Fail** if setting reverts to default
+
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32` and `/reload`
+
+---
+
+### Test 38: Macro Text Display
+**Steps:**
+1. Create a macro with a name
+2. Place macro on a Bar 1 button
+
+**Expected:**
+- Macro name appears on button (bottom of button)
+- Name uses configured font and color
+
+**Result:**
+- ✅ **Pass** if macro name displays
+- ❌ **Fail** if no text or wrong position
+
+---
+
+### Test 39: Item Count Display
+**Steps:**
+1. Place a consumable item (potion, food) on a button
+2. Check button
+
+**Expected:**
+- Item count appears on button (bottom right corner)
+- Count updates when using/gaining items
+
+**Result:**
+- ✅ **Pass** if count displays and updates
+- ❌ **Fail** if no count or doesn't update
+
+---
+
+### Test 40: No Taint
+**Steps:**
+1. Run full Phase 0 and Phase 1A tests
+2. Check for any taint errors with `/run print(GetCVarBool("taintLog"))`
+3. If taintLog enabled, check WoW logs for ADDON_ACTION_BLOCKED
+
+**Expected:** No taint errors related to TotalUI
+
+**Result:**
+- ✅ **Pass** if no taint errors
+- ❌ **Fail** if ADDON_ACTION_BLOCKED errors appear
+
+---
+
+## Phase 1A Summary
+
+**Total Tests:** 23 (Tests 18-40)
+
+**Required for Pass:** All 23 tests must pass
+
+**Known Limitations in Phase 1A:**
+- Only Bar 1 implemented (Bars 2-15 in later phases)
+- No special bars (Pet, Stance, Micro) yet
+- Configuration UI not available (must use Lua commands)
+- No bar mover tool yet
+
+**If Tests Fail:**
+1. Verify LibActionButton-1.0 is properly installed
+2. Check `/console scriptErrors 1` for errors
+3. Run `/totalui status` to check addon state
+4. Review failed test and check related code
+5. Fix issue and rerun all Phase 0 and Phase 1A tests
 
 ---
 

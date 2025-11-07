@@ -65,18 +65,11 @@ This library is licensed under the GNU Lesser General Public License v2.1.
 
 ---
 
-### LibActionButton-1.0 (Optional - Phase 1)
+### LibActionButton-1.0 (NOT USED)
 
-**Source**: https://www.wowace.com/projects/libactionbutton-1-0
+**Note**: TotalUI previously considered using LibActionButton-1.0 but instead implemented its own custom action button library (LibTotalActionButtons). We examined LibActionButton-1.0's functionality to understand requirements but implemented our solution from scratch using WoW's public API.
 
-**License**: BSD-3-Clause
-
-```
-LibActionButton provides a comprehensive action button implementation for WoW addons.
-
-This library is licensed under the BSD 3-Clause License.
-See the library's LICENSE file for full details.
-```
+**Acknowledgment**: While not used, we acknowledge the excellent work by Hendrik "nevcairiel" Leppkes and contributors on LibActionButton-1.0, which helped inform our understanding of action button requirements.
 
 ---
 
@@ -87,7 +80,6 @@ When using totalUI with these libraries installed:
 1. **LibStub**: No attribution required (Public Domain)
 2. **Ace3**: Attribution recommended but not required
 3. **LibSharedMedia-3.0**: Must comply with LGPL-2.1 if distributing
-4. **LibActionButton-1.0**: BSD license attribution recommended
 
 ## Notes
 

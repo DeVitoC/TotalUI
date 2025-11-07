@@ -45,13 +45,12 @@ This document explains how to download and integrate the required libraries for 
    └── lib.xml
    ```
 
-### 4. LibActionButton-1.0 (Optional - For Phase 1)
+### 4. LibTotalActionButtons (Built-in)
 **Purpose**: Action button handling
-**Download**: https://www.wowace.com/projects/libactionbutton-1-0
-**Installation**:
-1. Download the latest release
-2. Extract to `TotalUI/Libraries/LibActionButton-1.0/`
-3. This is optional until Phase 1 (ActionBars)
+**Status**: Built into TotalUI, no installation required
+**Location**: `TotalUI/Libraries/LibTotalActionButtons/`
+
+**Note**: This is TotalUI's custom implementation of action buttons. Unlike external libraries, this is maintained as part of TotalUI and follows our coding conventions.
 
 ## Integration Steps
 
@@ -77,7 +76,15 @@ Use the in-game command to check which libraries are loaded:
 /run print("AceAddon:", LibStub:GetLibrary("AceAddon-3.0", true) ~= nil)
 /run print("AceDB:", LibStub:GetLibrary("AceDB-3.0", true) ~= nil)
 /run print("LSM:", LibStub:GetLibrary("LibSharedMedia-3.0", true) ~= nil)
+/run print("LibActionButton:", LibStub:GetLibrary("LibActionButton-1.0", true) ~= nil)
 ```
+
+Or use TotalUI's built-in status command:
+```
+/totalui status
+```
+
+This will show all libraries and their loading status.
 
 ## Without Libraries
 
