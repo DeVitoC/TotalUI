@@ -124,6 +124,86 @@ else
     C_NewItemsCompat.RemoveNewItem = function() end
 end
 
+-- GetSpellInfo compatibility (Modern Retail uses C_Spell.GetSpellInfo)
+local GetSpellInfoCompat
+if C_Spell and C_Spell.GetSpellInfo then
+    -- Modern Retail API returns a table
+    GetSpellInfoCompat = function(spellID)
+        local spellInfo = C_Spell.GetSpellInfo(spellID)
+        if spellInfo then
+            -- Return values matching classic GetSpellInfo signature
+            return spellInfo.name, nil, spellInfo.iconID, spellInfo.castTime,
+                   spellInfo.minRange, spellInfo.maxRange, spellInfo.spellID,
+                   spellInfo.originalIconID
+        end
+        return nil
+    end
+else
+    -- Classic or older Retail
+    GetSpellInfoCompat = GetSpellInfo or function() return nil end
+end
+
+-- GetSpellTexture compatibility (Modern Retail uses C_Spell.GetSpellTexture)
+local GetSpellTextureCompat
+if C_Spell and C_Spell.GetSpellTexture then
+    -- Modern Retail API
+    GetSpellTextureCompat = function(spellID)
+        return C_Spell.GetSpellTexture(spellID)
+    end
+else
+    -- Classic or older Retail
+    GetSpellTextureCompat = GetSpellTexture or function() return nil end
+end
+
+-- GetSpellCooldown compatibility (Modern Retail uses C_Spell.GetSpellCooldown)
+local GetSpellCooldownCompat
+if C_Spell and C_Spell.GetSpellCooldown then
+    -- Modern Retail API returns a table
+    GetSpellCooldownCompat = function(spellID)
+        local cooldownInfo = C_Spell.GetSpellCooldown(spellID)
+        if cooldownInfo then
+            return cooldownInfo.startTime, cooldownInfo.duration, cooldownInfo.isEnabled, cooldownInfo.modRate
+        end
+        return 0, 0, 1, 1
+    end
+else
+    -- Classic or older Retail
+    GetSpellCooldownCompat = GetSpellCooldown or function() return 0, 0, 1, 1 end
+end
+
+-- IsUsableSpell compatibility (Modern Retail uses C_Spell.IsSpellUsable)
+local IsUsableSpellCompat
+if C_Spell and C_Spell.IsSpellUsable then
+    -- Modern Retail API returns a SpellUsableInfo table
+    IsUsableSpellCompat = function(spellID)
+        local usableInfo = C_Spell.IsSpellUsable(spellID)
+        if type(usableInfo) == "table" then
+            -- Modern Retail: returns table with isUsable and insufficientPower fields
+            return usableInfo.isUsable or false, usableInfo.insufficientPower or false
+        elseif type(usableInfo) == "boolean" then
+            -- Fallback: if it returns a boolean directly
+            return usableInfo, false
+        end
+        return false, false
+    end
+else
+    -- Classic or older Retail
+    IsUsableSpellCompat = IsUsableSpell or function() return false, false end
+end
+
+-- IsSpellInRange compatibility (Modern Retail uses C_Spell.IsSpellInRange)
+local IsSpellInRangeCompat
+if C_Spell and C_Spell.IsSpellInRange then
+    -- Modern Retail API
+    IsSpellInRangeCompat = function(spellID, unit)
+        -- C_Spell.IsSpellInRange returns true/false/nil directly
+        return C_Spell.IsSpellInRange(spellID, unit)
+    end
+else
+    -- Classic or older Retail - uses slot-based API
+    IsSpellInRangeCompat = IsSpellInRange or function() return nil end
+end
+
 -- Store compatibility wrappers
 LAB.Compat = {
     GetActionCharges = GetActionCharges,
@@ -132,6 +212,11 @@ LAB.Compat = {
     GetSpellLossOfControlCooldown = GetSpellLossOfControlCooldown,
     GetSpellCount = GetSpellCount,
     GetItemCharges = GetItemCharges,
+    GetSpellInfo = GetSpellInfoCompat,
+    GetSpellTexture = GetSpellTextureCompat,
+    GetSpellCooldown = GetSpellCooldownCompat,
+    IsUsableSpell = IsUsableSpellCompat,
+    IsSpellInRange = IsSpellInRangeCompat,
     C_ActionBar = C_ActionBarCompat,
     C_SpellActivationOverlay = C_SpellActivationOverlayCompat,
     C_NewItems = C_NewItemsCompat,
@@ -370,12 +455,14 @@ LAB.ActionTypeUpdateFunctions = ActionTypeUpdateFunctions
 -----------------------------------
 
 -- Helper: Find spell in spellbook
+-- Cache global function before defining local version (to avoid infinite recursion)
+local FindSpellBookSlotBySpellID_Global = _G.FindSpellBookSlotBySpellID
 local function FindSpellBookSlotBySpellID(spellID)
     if not spellID then return nil end
 
-    if WoWRetail then
+    if WoWRetail and FindSpellBookSlotBySpellID_Global then
         -- Retail has built-in function
-        return FindSpellBookSlotBySpellID(spellID, false)
+        return FindSpellBookSlotBySpellID_Global(spellID, false)
     else
         -- Classic: manual scan
         for i = 1, MAX_SKILLLINE_TABS do
@@ -395,11 +482,24 @@ end
 
 local SpellTypeUpdateFunctions = {
     HasAction = function(self)
-        return true  -- Spell buttons always have an action
+        -- Check if spell ID is valid
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
+        -- Check if spell exists
+        local name = LAB.Compat.GetSpellInfo(self.buttonAction)
+        return name ~= nil
     end,
 
     GetActionTexture = function(self)
-        return GetSpellTexture(self.buttonAction)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
+        local texture = LAB.Compat.GetSpellTexture(self.buttonAction)
+        if not texture then
+            LAB:DebugPrint("GetActionTexture: Invalid spell ID", self.buttonAction)
+        end
+        return texture
     end,
 
     GetActionText = function(self)
@@ -421,9 +521,21 @@ local SpellTypeUpdateFunctions = {
     end,
 
     IsInRange = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
+
+        -- Modern Retail: Use spell ID directly
+        if WoWRetail and LAB.Compat.IsSpellInRange then
+            local inRange = LAB.Compat.IsSpellInRange(self.buttonAction, "target")
+            -- Modern API returns true/false/nil directly
+            return inRange
+        end
+
+        -- Classic: Find spell slot first
         local slot = FindSpellBookSlotBySpellID(self.buttonAction)
-        if slot then
-            local inRange = IsSpellInRange(slot, BOOKTYPE_SPELL, "target")
+        if slot and LAB.Compat.IsSpellInRange then
+            local inRange = LAB.Compat.IsSpellInRange(slot, BOOKTYPE_SPELL, "target")
             if inRange == 1 then
                 return true
             elseif inRange == 0 then
@@ -434,14 +546,23 @@ local SpellTypeUpdateFunctions = {
     end,
 
     IsUsableAction = function(self)
-        return IsUsableSpell(self.buttonAction)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false, false
+        end
+        return LAB.Compat.IsUsableSpell(self.buttonAction)
     end,
 
     IsCurrentAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsCurrentSpell(self.buttonAction)
     end,
 
     IsAutoRepeatAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         local slot = FindSpellBookSlotBySpellID(self.buttonAction)
         if slot then
             return IsAutoRepeatSpell(slot, BOOKTYPE_SPELL)
@@ -450,6 +571,9 @@ local SpellTypeUpdateFunctions = {
     end,
 
     IsAttackAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         local slot = FindSpellBookSlotBySpellID(self.buttonAction)
         if slot then
             return IsAttackSpell(slot, BOOKTYPE_SPELL)
@@ -462,14 +586,23 @@ local SpellTypeUpdateFunctions = {
     end,
 
     IsConsumableAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsConsumableSpell(self.buttonAction)
     end,
 
     GetCooldown = function(self)
-        return GetSpellCooldown(self.buttonAction)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return 0, 0, 1, 1
+        end
+        return LAB.Compat.GetSpellCooldown(self.buttonAction)
     end,
 
     GetLossOfControlCooldown = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
         if LAB.Compat.GetSpellLossOfControlCooldown then
             return LAB.Compat.GetSpellLossOfControlCooldown(self.buttonAction)
         end
@@ -662,7 +795,7 @@ LAB.UPDATE_EVENTS = {
 -- BUTTON CREATION
 -----------------------------------
 
-function LAB:CreateButton(actionID, name, parent, config)
+function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
     -- Validate parameters (Phase 1 Step 1.4.4)
     if not LAB.Validate.Number(actionID, "actionID", "CreateButton", 1) then
         return nil
@@ -708,6 +841,11 @@ function LAB:CreateButton(actionID, name, parent, config)
     self:SetupButtonAction(button, actionID)
     self:StyleButton(button, config)
     self:RegisterButton(button)
+
+    -- Initial update for action buttons (type-specific buttons skip and do their own update)
+    if not skipUpdate then
+        self:UpdateButton(button)
+    end
 
     return button
 end
@@ -778,8 +916,8 @@ function LAB:RegisterButton(button)
         button:RegisterEvent(event)
     end
 
-    -- Initial update
-    self:UpdateButton(button)
+    -- NOTE: Initial update is done by type-specific creation functions
+    -- Don't call UpdateButton here because UpdateFunctions may not be set yet
 end
 
 -----------------------------------
@@ -791,10 +929,17 @@ function LAB:CreateSpellButton(spellID, name, parent, config)
         return nil
     end
 
-    self:DebugPrint(string.format("Creating spell button: %s (spell %d)", name, spellID))
+    -- Validate spell exists
+    local spellName = LAB.Compat.GetSpellInfo(spellID)
+    if not spellName then
+        self:Warning(string.format("CreateSpellButton: Spell ID %d does not exist or is not known by this character", spellID))
+        -- Still create the button, but it will be empty until spell is learned
+    end
 
-    -- Create base button
-    local button = self:CreateButton(spellID, name, parent, config)
+    self:DebugPrint(string.format("Creating spell button: %s (spell %d: %s)", name, spellID, spellName or "Unknown"))
+
+    -- Create base button (skip initial update, we'll do it after setting UpdateFunctions)
+    local button = self:CreateButton(spellID, name, parent, config, true)
     if not button then return nil end
 
     -- Set type to spell
@@ -819,7 +964,8 @@ function LAB:CreateItemButton(itemID, name, parent, config)
 
     self:DebugPrint(string.format("Creating item button: %s (item %d)", name, itemID))
 
-    local button = self:CreateButton(itemID, name, parent, config)
+    -- Create base button (skip initial update, we'll do it after setting UpdateFunctions)
+    local button = self:CreateButton(itemID, name, parent, config, true)
     if not button then return nil end
 
     button.buttonType = LAB.ButtonType.ITEM
@@ -840,7 +986,8 @@ function LAB:CreateMacroButton(macroID, name, parent, config)
 
     self:DebugPrint(string.format("Creating macro button: %s (macro %d)", name, macroID))
 
-    local button = self:CreateButton(macroID, name, parent, config)
+    -- Create base button (skip initial update, we'll do it after setting UpdateFunctions)
+    local button = self:CreateButton(macroID, name, parent, config, true)
     if not button then return nil end
 
     button.buttonType = LAB.ButtonType.MACRO
@@ -866,7 +1013,8 @@ function LAB:CreateCustomButton(id, name, parent, config, updateFunctions)
 
     self:DebugPrint(string.format("Creating custom button: %s (id %d)", name, id))
 
-    local button = self:CreateButton(id, name, parent, config)
+    -- Create base button (skip initial update, we'll do it after setting UpdateFunctions)
+    local button = self:CreateButton(id, name, parent, config, true)
     if not button then return nil end
 
     button.buttonType = LAB.ButtonType.CUSTOM
@@ -1072,7 +1220,13 @@ function LAB:UpdateAction(button)
     local action = button.action
     if not action then return end
 
-    local hasAction = HasAction(action)
+    -- Use UpdateFunctions for type-specific HasAction check
+    local hasAction
+    if button.UpdateFunctions and button.UpdateFunctions.HasAction then
+        hasAction = button.UpdateFunctions.HasAction(button)
+    else
+        hasAction = HasAction(action)
+    end
     button._state.hasAction = hasAction
 
     if hasAction then
@@ -1089,12 +1243,25 @@ function LAB:UpdateAction(button)
 end
 
 function LAB:UpdateIcon(button)
-    local action = button.action
-    if not action or not button._icon then return end
+    if not button or not button._icon then return end
 
-    local texture = GetActionTexture(action)
+    -- Use UpdateFunctions if available (Phase 2)
+    local texture
+    if button.UpdateFunctions and button.UpdateFunctions.GetActionTexture then
+        texture = button.UpdateFunctions.GetActionTexture(button)
+    elseif button.action then
+        -- Fallback to old method
+        texture = GetActionTexture(button.action)
+    end
+
     if texture then
-        button._icon:SetTexture(texture)
+        -- Modern Retail: texture IDs are numeric and need SetTextureFileID
+        -- Classic: textures are string paths and use SetTexture
+        if type(texture) == "number" then
+            button._icon:SetTexture(texture)  -- SetTexture accepts numbers in modern APIs
+        else
+            button._icon:SetTexture(texture)
+        end
         button._icon:Show()
     else
         button._icon:SetTexture(nil)
@@ -1103,10 +1270,17 @@ function LAB:UpdateIcon(button)
 end
 
 function LAB:UpdateCount(button)
-    local action = button.action
-    if not action or not button._count then return end
+    if not button or not button._count then return end
 
-    local count = GetActionCount(action)
+    -- Use UpdateFunctions if available (Phase 2)
+    local count
+    if button.UpdateFunctions and button.UpdateFunctions.GetActionCount then
+        count = button.UpdateFunctions.GetActionCount(button)
+    elseif button.action then
+        -- Fallback to old method
+        count = GetActionCount(button.action)
+    end
+
     if count and count > 1 then
         button._count:SetText(count)
         button._count:Show()
@@ -1117,10 +1291,17 @@ function LAB:UpdateCount(button)
 end
 
 function LAB:UpdateCooldown(button)
-    local action = button.action
-    if not action or not button._cooldown then return end
+    if not button or not button._cooldown then return end
 
-    local start, duration, enable = GetActionCooldown(action)
+    -- Use UpdateFunctions if available (Phase 2)
+    local start, duration, enable
+    if button.UpdateFunctions and button.UpdateFunctions.GetCooldown then
+        start, duration, enable = button.UpdateFunctions.GetCooldown(button)
+    elseif button.action then
+        -- Fallback to old method
+        start, duration, enable = GetActionCooldown(button.action)
+    end
+
     if start and duration and enable == 1 then
         button._cooldown:SetCooldown(start, duration)
     else
@@ -1128,14 +1309,18 @@ function LAB:UpdateCooldown(button)
     end
 
     -- Handle charges using compatibility wrapper (Phase 1 Step 1.3)
-    if self.Compat and self.Compat.GetActionCharges then
-        local charges, maxCharges, chargeStart, chargeDuration = self.Compat.GetActionCharges(action)
-        if charges and maxCharges and maxCharges > 1 then
-            -- Show charge count
-            if charges < maxCharges and button._count then
-                button._count:SetText(charges)
-                button._count:Show()
-            end
+    local charges, maxCharges, chargeStart, chargeDuration
+    if button.UpdateFunctions and button.UpdateFunctions.GetActionCharges then
+        charges, maxCharges, chargeStart, chargeDuration = button.UpdateFunctions.GetActionCharges(button)
+    elseif button.action and self.Compat and self.Compat.GetActionCharges then
+        charges, maxCharges, chargeStart, chargeDuration = self.Compat.GetActionCharges(button.action)
+    end
+
+    if charges and maxCharges and maxCharges > 1 then
+        -- Show charge count
+        if charges < maxCharges and button._count then
+            button._count:SetText(charges)
+            button._count:Show()
         end
     end
 end
@@ -1165,10 +1350,18 @@ function LAB:UpdateHotkey(button)
 end
 
 function LAB:UpdateUsable(button)
-    local action = button.action
-    if not action or not button._icon then return end
+    if not button or not button._icon then return end
 
-    local isUsable, notEnoughMana = IsUsableAction(action)
+    -- Use UpdateFunctions if available (Phase 2)
+    local isUsable, notEnoughMana
+    if button.UpdateFunctions and button.UpdateFunctions.IsUsableAction then
+        isUsable, notEnoughMana = button.UpdateFunctions.IsUsableAction(button)
+    elseif button.action then
+        -- Fallback to old method
+        isUsable, notEnoughMana = IsUsableAction(button.action)
+    end
+
+    button._state = button._state or {}
     button._state.usable = isUsable
     button._state.hasPower = not notEnoughMana
 
@@ -1187,10 +1380,18 @@ function LAB:UpdateUsable(button)
 end
 
 function LAB:UpdateRange(button)
-    local action = button.action
-    if not action or not button._icon then return end
+    if not button or not button._icon then return end
 
-    local inRange = IsActionInRange(action)
+    -- Use UpdateFunctions if available (Phase 2)
+    local inRange
+    if button.UpdateFunctions and button.UpdateFunctions.IsInRange then
+        inRange = button.UpdateFunctions.IsInRange(button)
+    elseif button.action then
+        -- Fallback to old method
+        inRange = IsActionInRange(button.action)
+    end
+
+    button._state = button._state or {}
     button._state.inRange = inRange
 
     -- Only apply range coloring if the action is usable
