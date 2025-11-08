@@ -871,6 +871,11 @@ function LAB:InitializeButton(button)
         usable = true,
     }
 
+    -- Initialize state management system (Phase 3)
+    button.currentState = "0"  -- Default to state 0
+    button.stateTypes = {}     -- Maps state -> button type
+    button.stateActions = {}   -- Maps state -> action/spell/item ID
+
     -- Set up scripts
     self:SetupButtonScripts(button)
 end
@@ -1199,6 +1204,303 @@ function LAB:ApplyTextConfig(button, textConfig)
 end
 
 -----------------------------------
+-- STATE MANAGEMENT (Phase 3)
+-----------------------------------
+
+--[[
+    State Management System
+
+    Buttons can have multiple "states" that determine their current action.
+    Each state can have a different button type and action.
+
+    Common use cases:
+    - Action bar paging (Page 1, Page 2, etc.)
+    - Stance/form switching (Warrior stances, Druid forms)
+    - Vehicle/possess bars
+
+    State "0" is the default/fallback state.
+
+    Example:
+        LAB:SetState(button, 0, "action", 1)      -- Default: Action slot 1
+        LAB:SetState(button, 1, "spell", 133)     -- Stance 1: Fireball
+        LAB:SetState(button, 2, "item", 6948)     -- Stance 2: Hearthstone
+        LAB:UpdateState(button, 1)                 -- Switch to stance 1
+]]
+
+--- Set the action for a specific state
+-- @param button The button to configure
+-- @param state The state identifier (0 = default)
+-- @param buttonType The button type for this state ("action", "spell", "item", "macro", "custom")
+-- @param action The action ID for this state
+function LAB:SetState(button, state, buttonType, action)
+    if not LAB.Validate.Button(button, "SetState") then return end
+
+    state = tostring(state or 0)
+
+    -- Initialize state tables if needed
+    if not button.stateTypes then
+        button.stateTypes = {}
+    end
+    if not button.stateActions then
+        button.stateActions = {}
+    end
+
+    -- Store state type and action
+    button.stateTypes[state] = buttonType or LAB.ButtonType.EMPTY
+    button.stateActions[state] = action
+
+    -- Set secure state attributes for proper click functionality
+    if buttonType and action then
+        -- Map button type to secure attribute type
+        local secureType = buttonType
+        if buttonType == LAB.ButtonType.ACTION then
+            button:SetAttribute(string.format("*type-s%s", state), "action")
+            button:SetAttribute(string.format("*action-s%s", state), action)
+        elseif buttonType == LAB.ButtonType.SPELL then
+            button:SetAttribute(string.format("*type-s%s", state), "spell")
+            button:SetAttribute(string.format("*spell-s%s", state), action)
+        elseif buttonType == LAB.ButtonType.ITEM then
+            button:SetAttribute(string.format("*type-s%s", state), "item")
+            button:SetAttribute(string.format("*item-s%s", state), action)
+        elseif buttonType == LAB.ButtonType.MACRO then
+            button:SetAttribute(string.format("*type-s%s", state), "macro")
+            button:SetAttribute(string.format("*macro-s%s", state), action)
+        end
+    else
+        -- Clear state (empty)
+        button:SetAttribute(string.format("*type-s%s", state), nil)
+    end
+
+    self:DebugPrint(string.format("SetState: button=%s, state=%s, type=%s, action=%s",
+        button:GetName() or "unnamed", state, tostring(buttonType), tostring(action)))
+
+    -- If this is the current state, update the button display
+    if not button.currentState then
+        button.currentState = "0"
+    end
+    if button.currentState == state then
+        self:UpdateButtonState(button)
+    end
+end
+
+--- Get the action configured for a specific state
+-- If no state is provided, returns the current state
+-- @param button The button to query
+-- @param state Optional state identifier. If nil, returns current state
+-- @return buttonType, action for the specified state, or just currentState if no state param
+function LAB:GetState(button, state)
+    if not LAB.Validate.Button(button, "GetState") then return nil end
+
+    if not state then
+        -- Return current state
+        return button.currentState or "0"
+    end
+
+    -- Return specific state's type and action
+    state = tostring(state)
+    local stateType = button.stateTypes and button.stateTypes[state]
+    local stateAction = button.stateActions and button.stateActions[state]
+
+    return stateType, stateAction
+end
+
+--- Switch the button to a different state
+-- @param button The button to update
+-- @param newState The state to switch to (e.g., "1", "2")
+function LAB:UpdateState(button, newState)
+    if not LAB.Validate.Button(button, "UpdateState") then return end
+
+    newState = tostring(newState or 0)
+
+    local oldState = button.currentState or "0"
+    button.currentState = newState
+
+    -- Set secure attribute state for click handling
+    button:SetAttribute("state", newState)
+
+    self:DebugPrint(string.format("UpdateState: button=%s, old=%s, new=%s",
+        button:GetName() or "unnamed", oldState, newState))
+
+    -- Update button display for new state
+    self:UpdateButtonState(button)
+end
+
+--- Internal: Update button display based on current state
+-- This changes the button's type and action to match the current state
+-- @param button The button to update
+function LAB:UpdateButtonState(button)
+    if not button then return end
+
+    local state = button.currentState or "0"
+    local buttonType, action = self:GetAction(button, state)
+
+    self:DebugPrint(string.format("UpdateButtonState: button=%s, state=%s, type=%s, action=%s",
+        button:GetName() or "unnamed", state, tostring(buttonType), tostring(action)))
+
+    -- Update button type and action
+    button.buttonType = buttonType or LAB.ButtonType.EMPTY
+    button.buttonAction = action
+
+    -- Update secure attributes for click handling
+    if buttonType == LAB.ButtonType.ACTION then
+        button:SetAttribute("type", "action")
+        button:SetAttribute("action", action)
+        button.UpdateFunctions = LAB.ActionTypeUpdateFunctions
+    elseif buttonType == LAB.ButtonType.SPELL then
+        button:SetAttribute("type", "spell")
+        button:SetAttribute("spell", action)
+        button.UpdateFunctions = LAB.SpellTypeUpdateFunctions
+    elseif buttonType == LAB.ButtonType.ITEM then
+        button:SetAttribute("type", "item")
+        button:SetAttribute("item", "item:" .. tostring(action))
+        button.UpdateFunctions = LAB.ItemTypeUpdateFunctions
+    elseif buttonType == LAB.ButtonType.MACRO then
+        button:SetAttribute("type", "macro")
+        button:SetAttribute("macro", action)
+        button.UpdateFunctions = LAB.MacroTypeUpdateFunctions
+    else
+        -- Empty or unknown type
+        button:SetAttribute("type", nil)
+        button.UpdateFunctions = {}
+    end
+
+    -- Update all visual elements for the new action
+    self:UpdateButton(button)
+end
+
+--- Get the action for a specific state (or current state)
+-- @param button The button to query
+-- @param state Optional state identifier
+-- @return buttonType, action
+function LAB:GetAction(button, state)
+    if not button then return LAB.ButtonType.EMPTY, nil end
+
+    state = state or button.currentState or "0"
+    state = tostring(state)
+
+    -- Try to get state-specific action
+    local stateType = button.stateTypes and button.stateTypes[state]
+    local stateAction = button.stateActions and button.stateActions[state]
+
+    -- If state has no action, fall back to default state "0"
+    if not stateType and state ~= "0" then
+        stateType = button.stateTypes and button.stateTypes["0"]
+        stateAction = button.stateActions and button.stateActions["0"]
+    end
+
+    -- Final fallback to button's base type/action
+    return stateType or button.buttonType or LAB.ButtonType.EMPTY,
+           stateAction or button.buttonAction
+end
+
+--- Clear all states for a button
+-- Resets the button to a single default state
+-- @param button The button to clear
+function LAB:ClearStates(button)
+    if not LAB.Validate.Button(button, "ClearStates") then return end
+
+    button.stateTypes = {}
+    button.stateActions = {}
+    button.currentState = "0"
+
+    -- Clear secure state attributes
+    for i = 0, 20 do
+        local state = tostring(i)
+        button:SetAttribute(string.format("*type-s%s", state), nil)
+        button:SetAttribute(string.format("*action-s%s", state), nil)
+        button:SetAttribute(string.format("*spell-s%s", state), nil)
+        button:SetAttribute(string.format("*item-s%s", state), nil)
+        button:SetAttribute(string.format("*macro-s%s", state), nil)
+    end
+    button:SetAttribute("state", "0")
+
+    self:DebugPrint("ClearStates: button=" .. (button:GetName() or "unnamed"))
+end
+
+--- Enable paging for a button (responds to page changes)
+-- @param button The button to configure
+-- @param enable Boolean to enable/disable paging
+function LAB:EnablePaging(button, enable)
+    if not LAB.Validate.Button(button, "EnablePaging") then return end
+
+    button.usePaging = enable
+
+    if enable then
+        -- Set initial state based on current page
+        local page = GetActionBarPage and GetActionBarPage() or 1
+        self:UpdateState(button, tostring(page))
+        self:DebugPrint(string.format("EnablePaging: button=%s, initial page=%d",
+            button:GetName() or "unnamed", page))
+    else
+        -- Reset to default state
+        self:UpdateState(button, "0")
+    end
+end
+
+--- Enable stance-based state switching
+-- @param button The button to configure
+-- @param enable Boolean to enable/disable stance switching
+function LAB:EnableStanceState(button, enable)
+    if not LAB.Validate.Button(button, "EnableStanceState") then return end
+
+    button.useStance = enable
+
+    if enable then
+        -- Set initial state based on current stance/form
+        local stance = GetShapeshiftForm and GetShapeshiftForm() or 0
+        self:UpdateState(button, tostring(stance))
+        self:DebugPrint(string.format("EnableStanceState: button=%s, initial stance=%d",
+            button:GetName() or "unnamed", stance))
+    else
+        -- Reset to default state
+        self:UpdateState(button, "0")
+    end
+end
+
+--- Event handling for state changes
+-- This should be called by TotalUI's action bar module when state-changing events occur
+function LAB:OnPageChanged(newPage)
+    newPage = newPage or (GetActionBarPage and GetActionBarPage() or 1)
+
+    self:DebugPrint("OnPageChanged: newPage=" .. tostring(newPage))
+
+    -- Update all buttons that use paging
+    for _, button in pairs(self.buttons or {}) do
+        if button.usePaging then
+            self:UpdateState(button, tostring(newPage))
+        end
+    end
+end
+
+--- Event handling for stance/form changes
+function LAB:OnStanceChanged()
+    local stance = GetShapeshiftForm and GetShapeshiftForm() or 0
+
+    self:DebugPrint("OnStanceChanged: stance=" .. tostring(stance))
+
+    -- Update all buttons that use stance switching
+    for _, button in pairs(self.buttons or {}) do
+        if button.useStance then
+            self:UpdateState(button, tostring(stance))
+        end
+    end
+end
+
+--- Event handling for bonus bar changes (possess, vehicle, etc.)
+function LAB:OnBonusBarChanged()
+    local bonusBar = GetBonusBarOffset and GetBonusBarOffset() or 0
+
+    self:DebugPrint("OnBonusBarChanged: bonusBar=" .. tostring(bonusBar))
+
+    -- Update all buttons that use bonus bar switching
+    for _, button in pairs(self.buttons or {}) do
+        if button.useBonusBar then
+            self:UpdateState(button, tostring(bonusBar))
+        end
+    end
+end
+
+-----------------------------------
 -- BUTTON UPDATES
 -----------------------------------
 
@@ -1212,7 +1514,7 @@ function LAB:UpdateButton(button)
     self:UpdateHotkey(button)
     self:UpdateUsable(button)
     self:UpdateRange(button)
-    self:UpdateState(button)
+    self:UpdateVisualState(button)
     self:UpdateGrid(button)
 end
 
@@ -1408,7 +1710,7 @@ function LAB:UpdateRange(button)
     -- nil means no range restriction
 end
 
-function LAB:UpdateState(button)
+function LAB:UpdateVisualState(button)
     local action = button.action
     if not action then return end
 
@@ -1492,7 +1794,7 @@ function LAB:OnButtonEvent(button, event, ...)
     elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_COOLDOWN" then
         self:UpdateCooldown(button)
     elseif event == "ACTIONBAR_UPDATE_STATE" or event == "SPELL_UPDATE_USABLE" then
-        self:UpdateState(button)
+        self:UpdateVisualState(button)
         self:UpdateUsable(button)
     elseif event == "ACTIONBAR_UPDATE_USABLE" then
         self:UpdateUsable(button)
