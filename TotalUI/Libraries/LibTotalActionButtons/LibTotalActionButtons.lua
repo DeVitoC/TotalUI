@@ -90,7 +90,25 @@ LAB.VERSION_INFO = {
 -- Retail-only APIs with safe fallbacks (Phase 1 Step 1.3)
 local GetActionCharges = GetActionCharges or function() return nil end
 local GetActionLossOfControlCooldown = GetActionLossOfControlCooldown or function() return nil end
-local GetSpellCharges = GetSpellCharges or function() return nil end
+
+-- GetSpellCharges moved to C_Spell in 11.x
+local GetSpellCharges
+if C_Spell and C_Spell.GetSpellCharges then
+    GetSpellCharges = function(spellID)
+        local chargeInfo = C_Spell.GetSpellCharges(spellID)
+        if chargeInfo then
+            return chargeInfo.currentCharges, chargeInfo.maxCharges, chargeInfo.cooldownStartTime, chargeInfo.cooldownDuration
+        end
+        return nil
+    end
+elseif GetSpellCharges then
+    -- Older Retail versions
+    GetSpellCharges = GetSpellCharges
+else
+    -- Classic fallback
+    GetSpellCharges = function() return nil end
+end
+
 local GetSpellLossOfControlCooldown = GetSpellLossOfControlCooldown or function() return nil end
 local GetSpellCount = GetSpellCount or function() return 0 end
 local GetItemCharges = GetItemCharges or function() return nil end
@@ -1592,40 +1610,305 @@ function LAB:UpdateCount(button)
     end
 end
 
+--- Phase 4 Step 4.1: Create charge cooldown frame
+function LAB:CreateChargeCooldownFrame(button)
+    if not button then return end
+    if button.chargeCooldown then return end  -- Already exists
+
+    button.chargeCooldown = CreateFrame("Cooldown",
+        button:GetName() .. "ChargeCooldown", button, "CooldownFrameTemplate")
+
+    button.chargeCooldown:SetAllPoints(button._icon)
+    button.chargeCooldown:SetDrawEdge(false)
+    button.chargeCooldown:SetDrawBling(false)
+    button.chargeCooldown:SetDrawSwipe(true)
+    button.chargeCooldown:SetSwipeColor(0, 0, 0, 0.8)
+    button.chargeCooldown:SetFrameLevel(button._cooldown:GetFrameLevel() + 1)
+end
+
+--- Phase 4 Step 4.1: Enhanced cooldown update with charge support
 function LAB:UpdateCooldown(button)
     if not button or not button._cooldown then return end
 
-    -- Use UpdateFunctions if available (Phase 2)
-    local start, duration, enable
+    local start, duration, enable, modRate
+    local charges, maxCharges, chargeStart, chargeDuration
+
+    -- Get cooldown data based on button type
     if button.UpdateFunctions and button.UpdateFunctions.GetCooldown then
-        start, duration, enable = button.UpdateFunctions.GetCooldown(button)
+        start, duration, enable, modRate = button.UpdateFunctions.GetCooldown(button)
     elseif button.action then
-        -- Fallback to old method
         start, duration, enable = GetActionCooldown(button.action)
     end
 
-    if start and duration and enable == 1 then
-        button._cooldown:SetCooldown(start, duration)
-    else
-        button._cooldown:Clear()
-    end
-
-    -- Handle charges using compatibility wrapper (Phase 1 Step 1.3)
-    local charges, maxCharges, chargeStart, chargeDuration
     if button.UpdateFunctions and button.UpdateFunctions.GetActionCharges then
         charges, maxCharges, chargeStart, chargeDuration = button.UpdateFunctions.GetActionCharges(button)
     elseif button.action and self.Compat and self.Compat.GetActionCharges then
         charges, maxCharges, chargeStart, chargeDuration = self.Compat.GetActionCharges(button.action)
     end
 
+    -- Handle charge-based abilities
     if charges and maxCharges and maxCharges > 1 then
-        -- Show charge count
-        if charges < maxCharges and button._count then
-            button._count:SetText(charges)
-            button._count:Show()
+        -- Create charge cooldown frame if needed (Retail only)
+        if not button.chargeCooldown and self.WoWRetail then
+            self:CreateChargeCooldownFrame(button)
+        end
+
+        if button.chargeCooldown then
+            if charges < maxCharges and chargeStart and chargeDuration then
+                -- Show next charge cooldown
+                button.chargeCooldown:SetCooldown(chargeStart, chargeDuration)
+                button.chargeCooldown:Show()
+            else
+                button.chargeCooldown:Hide()
+            end
+        end
+
+        -- Main cooldown only shows when all charges depleted
+        if charges == 0 and start and duration and enable == 1 then
+            button._cooldown:SetCooldown(start, duration)
+            button._cooldown:Show()
+        else
+            button._cooldown:Hide()
+        end
+
+        return
+    end
+
+    -- Check for Loss of Control cooldown (takes priority) - Retail only
+    if self.WoWRetail and button.UpdateFunctions and button.UpdateFunctions.GetLossOfControlCooldown then
+        local locStart, locDuration = button.UpdateFunctions.GetLossOfControlCooldown(button)
+        if locStart and locStart > 0 and locDuration and locDuration > 0 then
+            button._cooldown:SetCooldown(locStart, locDuration)
+            if button._cooldown.SetEdgeTexture then
+                button._cooldown:SetEdgeTexture("Interface\\Cooldown\\edge-LoC")
+            end
+            if button._cooldown.SetSwipeColor then
+                button._cooldown:SetSwipeColor(0.17, 0, 0)
+            end
+            button._cooldown.currentCooldownType = "LoC"
+            button._cooldown:Show()
+            return
+        end
+    end
+
+    -- Normal cooldown
+    if start and duration and enable == 1 and duration > 0 then
+        button._cooldown:SetCooldown(start, duration)
+        if button._cooldown.SetEdgeTexture then
+            button._cooldown:SetEdgeTexture("Interface\\Cooldown\\edge")
+        end
+        if button._cooldown.SetSwipeColor then
+            button._cooldown:SetSwipeColor(0, 0, 0, 0.8)
+        end
+        button._cooldown.currentCooldownType = "normal"
+        button._cooldown:Show()
+    else
+        button._cooldown:Hide()
+    end
+
+    -- Hide charge cooldown if not charge-based
+    if button.chargeCooldown then
+        button.chargeCooldown:Hide()
+    end
+end
+
+-----------------------------------
+-- SPELL ACTIVATION OVERLAYS (PROC GLOWS) - Phase 4 Step 4.2
+-----------------------------------
+
+--- Register spell overlay events (Retail only)
+function LAB:RegisterOverlayEvents()
+    if not self.WoWRetail then return end
+
+    if not self.overlayEventFrame then
+        self.overlayEventFrame = CreateFrame("Frame")
+        self.overlayEventFrame:SetScript("OnEvent", function(frame, event, ...)
+            LAB:OnOverlayEvent(event, ...)
+        end)
+    end
+
+    self.overlayEventFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+    self.overlayEventFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+end
+
+--- Handle overlay events
+function LAB:OnOverlayEvent(event, spellID)
+    if event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
+        self:ShowOverlayGlowForSpell(spellID)
+    elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
+        self:HideOverlayGlowForSpell(spellID)
+    end
+end
+
+--- Show overlay glow for all buttons with this spell
+function LAB:ShowOverlayGlowForSpell(spellID)
+    -- Update all buttons with this spell
+    for _, button in pairs(self.buttons or {}) do
+        if button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
+            local buttonSpellID = button.UpdateFunctions.GetSpellId(button)
+            if buttonSpellID == spellID then
+                self:ShowOverlayGlow(button)
+            end
         end
     end
 end
+
+--- Hide overlay glow for all buttons with this spell
+function LAB:HideOverlayGlowForSpell(spellID)
+    for _, button in pairs(self.buttons or {}) do
+        if button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
+            local buttonSpellID = button.UpdateFunctions.GetSpellId(button)
+            if buttonSpellID == spellID then
+                self:HideOverlayGlow(button)
+            end
+        end
+    end
+end
+
+--- Show overlay glow on a button
+function LAB:ShowOverlayGlow(button)
+    if not self.WoWRetail then return end
+    if not button then return end
+
+    -- Create overlay glow if it doesn't exist
+    if not button.overlay then
+        local overlay = CreateFrame("Frame", nil, button)
+        overlay:SetAllPoints()
+        overlay:SetFrameLevel(button:GetFrameLevel() + 5)
+
+        -- Create outer glow texture
+        local outerGlow = overlay:CreateTexture(nil, "OVERLAY")
+        outerGlow:SetAllPoints()
+        outerGlow:SetTexture("Interface\\SpellActivationOverlay\\IconAlert")
+        outerGlow:SetBlendMode("ADD")
+        outerGlow:SetTexCoord(0.00781250, 0.50781250, 0.27734375, 0.52734375)
+
+        -- Create animation group for pulsing effect
+        local animGroup = outerGlow:CreateAnimationGroup()
+        animGroup:SetLooping("REPEAT")
+
+        -- Scale animation
+        local scale1 = animGroup:CreateAnimation("Scale")
+        scale1:SetScale(1.5, 1.5)
+        scale1:SetDuration(0.2)
+        scale1:SetOrder(1)
+
+        local scale2 = animGroup:CreateAnimation("Scale")
+        scale2:SetScale(0.666, 0.666)
+        scale2:SetDuration(0.2)
+        scale2:SetOrder(2)
+
+        -- Alpha animation
+        local alpha1 = animGroup:CreateAnimation("Alpha")
+        alpha1:SetFromAlpha(0)
+        alpha1:SetToAlpha(1)
+        alpha1:SetDuration(0.2)
+        alpha1:SetOrder(1)
+
+        local alpha2 = animGroup:CreateAnimation("Alpha")
+        alpha2:SetFromAlpha(1)
+        alpha2:SetToAlpha(0)
+        alpha2:SetDuration(0.2)
+        alpha2:SetOrder(2)
+
+        overlay.outerGlow = outerGlow
+        overlay.animGroup = animGroup
+        button.overlay = overlay
+    end
+
+    button.overlay:Show()
+    button.overlay.animGroup:Play()
+end
+
+--- Hide overlay glow on a button
+function LAB:HideOverlayGlow(button)
+    if button and button.overlay then
+        button.overlay.animGroup:Stop()
+        button.overlay:Hide()
+    end
+end
+
+--- Update overlay state for a button
+function LAB:UpdateSpellOverlay(button)
+    if not self.WoWRetail then return end
+    if not button or not button.UpdateFunctions then return end
+
+    local spellID = button.UpdateFunctions.GetSpellId and button.UpdateFunctions.GetSpellId(button)
+    if not spellID then
+        self:HideOverlayGlow(button)
+        return
+    end
+
+    -- Check if spell is overlayed
+    local isOverlayed = false
+    if self.Compat.C_SpellActivationOverlay and self.Compat.C_SpellActivationOverlay.IsSpellOverlayed then
+        isOverlayed = self.Compat.C_SpellActivationOverlay.IsSpellOverlayed(spellID)
+    elseif self.Compat.IsSpellOverlayed then
+        isOverlayed = self.Compat.IsSpellOverlayed(spellID)
+    end
+
+    if isOverlayed then
+        self:ShowOverlayGlow(button)
+    else
+        self:HideOverlayGlow(button)
+    end
+end
+
+-----------------------------------
+-- NEW ACTION HIGHLIGHTING - Phase 4 Step 4.3
+-----------------------------------
+
+--- Update new action highlight (Retail only)
+function LAB:UpdateNewActionHighlight(button)
+    if not self.WoWRetail then return end
+    if not button or not button.UpdateFunctions then return end
+    if not self.Compat.C_NewItems or not self.Compat.C_NewItems.IsNewItem then return end
+
+    -- Get action info
+    local actionType, id
+    if button.UpdateFunctions.GetSpellId then
+        id = button.UpdateFunctions.GetSpellId(button)
+        actionType = "spell"
+    end
+
+    -- Check if using GetActionInfo
+    if not id and button.buttonType == self.ButtonType.ACTION then
+        actionType, id = GetActionInfo(button.buttonAction)
+    end
+
+    if not actionType or not id then
+        if button.NewActionTexture then
+            button.NewActionTexture:Hide()
+        end
+        return
+    end
+
+    -- Check if new
+    local isNew = false
+    if actionType == "spell" and Enum and Enum.NewItemType then
+        isNew = self.Compat.C_NewItems.IsNewItem(id, Enum.NewItemType.Spell)
+    elseif actionType == "item" and Enum and Enum.NewItemType then
+        isNew = self.Compat.C_NewItems.IsNewItem(id, Enum.NewItemType.Item)
+    end
+
+    if isNew then
+        if not button.NewActionTexture then
+            button.NewActionTexture = button:CreateTexture(nil, "OVERLAY", nil, 1)
+            button.NewActionTexture:SetAtlas("bags-glow-white")
+            button.NewActionTexture:SetBlendMode("ADD")
+            button.NewActionTexture:SetAllPoints()
+        end
+        button.NewActionTexture:Show()
+    else
+        if button.NewActionTexture then
+            button.NewActionTexture:Hide()
+        end
+    end
+end
+
+-----------------------------------
+-- BUTTON UPDATE HELPERS
+-----------------------------------
 
 function LAB:UpdateHotkey(button)
     local action = button.action
@@ -1651,8 +1934,30 @@ function LAB:UpdateHotkey(button)
     end
 end
 
+--- Phase 4 Step 4.4: Update equipped item border
+function LAB:UpdateEquippedBorder(button)
+    if not button or not button._border then return end
+    if not button.UpdateFunctions or not button.UpdateFunctions.IsEquippedAction then return end
+
+    local isEquipped = button.UpdateFunctions.IsEquippedAction(button)
+
+    if isEquipped then
+        button._border:SetVertexColor(0, 1.0, 0, 0.35)  -- Green
+        button._border:Show()
+    else
+        -- Check if border should be shown for other reasons
+        -- If not, hide it
+        if not button.config or not button.config.showBorder then
+            button._border:Hide()
+        end
+    end
+end
+
 function LAB:UpdateUsable(button)
     if not button or not button._icon then return end
+
+    -- Update equipped border first (Phase 4 Step 4.4)
+    self:UpdateEquippedBorder(button)
 
     -- Use UpdateFunctions if available (Phase 2)
     local isUsable, notEnoughMana
@@ -1870,6 +2175,13 @@ function LAB:UpdateAllButtons()
         self:UpdateButton(button)
     end
 end
+
+-----------------------------------
+-- INITIALIZATION
+-----------------------------------
+
+-- Register overlay events for proc glows (Retail only)
+LAB:RegisterOverlayEvents()
 
 -- Export
 return LAB

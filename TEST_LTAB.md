@@ -304,6 +304,146 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ✅ Mixed button types work
 ✅ Click behavior changes with state
 
+### Phase 4 (Retail features may not apply to Classic)
+✅ Charge cooldowns display separately
+✅ Proc glows show/hide correctly
+✅ New action highlights appear
+✅ Equipped items show green border
+✅ LoC cooldowns show red swipe
+
+---
+
+## Phase 4: Visual Enhancements
+
+### Test 4.1: Charge Cooldown Display
+
+**Note**: Requires Retail and a charge-based ability (e.g., Fire Blast for Mages, Chi Torpedo for Monks)
+
+**Create charge-based spell button** (replace 108853 with your charge ability):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T=L:CreateSpellButton(108853,"P4C",UIParent)
+```
+```lua
+/run local b=_G.T;b:SetPoint("CENTER");LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+
+**Use the ability from your action bar to deplete charges** (button has no click handler yet):
+```lua
+/cast Fire Blast
+```
+
+**Then check if chargeCooldown frame exists and force update**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:UpdateButton(_G.T)
+```
+```lua
+/run local b=_G.T;print("chargeCooldown:",b.chargeCooldown and "YES" or "NO")
+```
+```lua
+/run local i=C_Spell.GetSpellCharges(108853);print("Charges:",i.currentCharges,"/",i.maxCharges)
+```
+
+**Expected** (Retail, when recharging):
+- chargeCooldown frame exists
+- Separate cooldown swipe for next charge
+- Main cooldown only when all depleted
+
+**Cleanup**:
+```lua
+/run if _G.T then _G.T:Hide();_G.T:SetParent(nil);_G.T=nil end
+```
+
+### Test 4.2: Spell Activation Overlays (Proc Glows)
+
+**Note**: Retail only, requires proc-able abilities
+
+**Verify overlay events registered**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");print("Events:",L.overlayEventFrame and "OK" or "NO")
+```
+
+**Create spell button and manually test glow**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.P=L:CreateSpellButton(116,"P4P",UIParent)
+```
+```lua
+/run local b=_G.P;b:SetPoint("CENTER");LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):ShowOverlayGlow(_G.P);print("Glow ON")
+```
+
+**Hide glow**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):HideOverlayGlow(_G.P);print("Glow OFF")
+```
+
+**Expected** (Retail):
+- Golden glow animation appears/disappears
+- Overlay frame created with pulsing animation
+
+**Cleanup**:
+```lua
+/run if _G.P then _G.P:Hide();_G.P:SetParent(nil);_G.P=nil end
+```
+
+### Test 4.3: New Action Highlighting
+
+**Note**: Retail only, requires a VERY recently learned spell (within current session)
+
+**Create button with spell** (replace 1459 with recently learned spell ID):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.N=L:CreateSpellButton(1459,"P4N",UIParent)
+```
+```lua
+/run local b=_G.N;b:SetPoint("CENTER");LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):UpdateNewActionHighlight(_G.N)
+```
+
+**Expected** (Retail, ONLY if spell was just learned this session):
+- White/yellow glow on button if spell is marked as new
+- No glow is normal - most spells aren't "new"
+- This feature auto-clears after spells are used
+
+**Cleanup**:
+```lua
+/run if _G.N then _G.N:Hide();_G.N:SetParent(nil);_G.N=nil end
+```
+
+### Test 4.4: Equipped Item Borders
+
+**Note**: Requires an equippable item in your bags
+
+**Get item ID from tooltip** (hover over item in bags first):
+```lua
+/run local n,l=GameTooltip:GetItem();if l then print("Item ID:",l:match("item:(%d+)"))end
+```
+
+**Create item button** (replace with item ID from above):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.E=L:CreateItemButton(193810,"P4E",UIParent)
+```
+```lua
+/run local b=_G.E;b:SetPoint("CENTER");LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+
+**If item is equipped, border should already be green. If not equipped, equip it then run**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):UpdateButton(_G.E);print("Updated")
+```
+
+**Expected** (when item equipped):
+- Green border around button (0, 1.0, 0, 0.35)
+- Border visible and colored green
+- Border hides when item unequipped
+
+**Cleanup**:
+```lua
+/run if _G.E then _G.E:Hide();_G.E:SetParent(nil);_G.E=nil end
+```
+
 ---
 
 ## Troubleshooting
