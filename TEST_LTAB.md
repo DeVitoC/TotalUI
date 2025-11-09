@@ -446,6 +446,196 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 ---
 
+## Phase 5: Interaction Systems
+
+### Test 5.1: Drag & Drop
+
+**Note**: Cannot test in combat
+
+**Create two spell buttons** (positioned right side to avoid spellbook):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.D1=L:CreateSpellButton(116,"P5D1",UIParent)
+```
+```lua
+/run local b=_G.D1;b:SetPoint("RIGHT",-150,-60);LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.D2=L:CreateSpellButton(1459,"P5D2",UIParent)
+```
+```lua
+/run local b=_G.D2;b:SetPoint("RIGHT",-150,60);LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+
+**Debug cursor info** (run after picking up a spell):
+```lua
+/run local t,a1,a2,a3=GetCursorInfo();print("Type:",t,"Arg1:",a1,"Arg2:",a2,"Arg3:",a3)p
+```
+
+**Expected**:
+- Drag spells from spellbook onto buttons
+- Drag button contents to another button
+- Shift-click to pick up to cursor
+
+**Cleanup**:
+```lua
+/run if _G.D1 then _G.D1:Hide();_G.D1:SetParent(nil);_G.D1=nil end
+```
+```lua
+/run if _G.D2 then _G.D2:Hide();_G.D2:SetParent(nil);_G.D2=nil end
+```
+
+### Test 5.2: Button Locking
+
+**Create and lock button**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.L=L:CreateSpellButton(116,"P5L",UIParent)
+```
+```lua
+/run local b=_G.L;b:SetPoint("CENTER");LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):SetLocked(_G.L,true);print("Locked")
+```
+
+**Try to drag (should fail)**:
+- Attempt to drag button or drag onto button
+- Should not work when locked
+
+**Unlock button**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):SetLocked(_G.L,false);print("Unlocked")
+```
+
+**Expected**:
+- Drag fails when locked
+- Drag works when unlocked
+
+**Cleanup**:
+```lua
+/run if _G.L then _G.L:Hide();_G.L:SetParent(nil);_G.L=nil end
+```
+
+### Test 5.3: Click Behavior
+
+**Note**: Uses WoW's secure `useOnKeyDown` attribute to control when actions execute
+
+**Create button**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.C=L:CreateSpellButton(116,"P5C",UIParent)
+```
+```lua
+/run local b=_G.C;b:SetPoint("CENTER");LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+
+**Set click-on-down**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):SetClickOnDown(_G.C,true);print("Click on DOWN")
+```
+
+**Test clicking**:
+- Button should cast spell immediately on mouse down
+- You'll see the cast bar start as soon as you press the button
+
+**Change to click-on-up**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):SetClickOnDown(_G.C,false);print("Click on UP")
+```
+
+**Test clicking**:
+- Button should cast spell when you release the mouse button
+- Cast bar appears only when you lift your finger
+
+**Expected**:
+- Click-on-down: Spell casts immediately when mouse button is pressed
+- Click-on-up: Spell casts when mouse button is released
+- Visual feedback (pushed texture) should appear/disappear correctly in both modes
+
+**Cleanup**:
+```lua
+/run if _G.C then _G.C:Hide();_G.C:SetParent(nil);_G.C=nil end
+```
+
+### Test 5.4: Cursor Pickup
+
+**Create button**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.K=L:CreateSpellButton(116,"P5K",UIParent)
+```
+```lua
+/run local b=_G.K;b:SetPoint("CENTER");LibStub("LibTotalActionButtons-1.0"):SetButtonSize(b,50,50);b:Show()
+```
+
+**Pickup to cursor**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):PickupButton(_G.K);print("Picked up")
+```
+
+**Expected**:
+- Spell appears on cursor
+
+**Place from cursor (pick up a spell first)**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):PlaceOnButton(_G.K);print("Placed")
+```
+
+**Clear button**:
+```lua
+/run LibStub("LibTotalActionButtons-1.0"):ClearButton(_G.K);print("Cleared")
+```
+
+**Expected**:
+- Button updates with placed spell
+- Button clears when cleared
+
+**Cleanup**:
+```lua
+/run if _G.K then _G.K:Hide();_G.K:SetParent(nil);_G.K=nil end
+```
+
+---
+
+## Expected Results Summary
+
+### Phase 1 (Foundation)
+✅ WoW version detected correctly
+✅ LibStub integration working
+✅ Error handling functional
+✅ Debug mode toggles
+
+### Phase 2 (Button Types)
+✅ Action buttons created
+✅ Spell buttons created
+✅ Item buttons created
+✅ Macro buttons created
+✅ Custom buttons created
+✅ All types update correctly
+
+### Phase 3 (State Management)
+✅ States set and queried correctly
+✅ Button switches between states
+✅ State fallback works
+✅ Clear states resets button
+✅ Paging support functional
+✅ Mixed button types work
+✅ Click behavior changes with state
+
+### Phase 4 (Retail features may not apply to Classic)
+✅ Charge cooldowns display separately
+✅ Proc glows show/hide correctly
+✅ New action highlights appear
+✅ Equipped items show green border
+✅ LoC cooldowns show red swipe
+
+### Phase 5 (Interaction)
+✅ Drag & drop works for all button types
+✅ Locking prevents drag/drop
+✅ Click-on-down vs click-on-up configurable
+✅ Cursor pickup/place functional
+✅ Combat lockdown enforced
+✅ Clear button works
+
+---
+
 ## Troubleshooting
 
 If any test fails:

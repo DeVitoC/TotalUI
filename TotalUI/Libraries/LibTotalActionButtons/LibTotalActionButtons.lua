@@ -113,6 +113,28 @@ local GetSpellLossOfControlCooldown = GetSpellLossOfControlCooldown or function(
 local GetSpellCount = GetSpellCount or function() return 0 end
 local GetItemCharges = GetItemCharges or function() return nil end
 
+-- Pickup functions moved to C_Spell/C_Item in 11.x
+local PickupSpellCompat
+if C_Spell and C_Spell.PickupSpell then
+    PickupSpellCompat = C_Spell.PickupSpell
+elseif PickupSpell then
+    PickupSpellCompat = PickupSpell
+else
+    PickupSpellCompat = function() end
+end
+
+local PickupItemCompat
+if C_Item and C_Item.PickupItem then
+    PickupItemCompat = C_Item.PickupItem
+elseif PickupItem then
+    PickupItemCompat = PickupItem
+else
+    PickupItemCompat = function() end
+end
+
+-- PickupMacro still exists as global
+local PickupMacroCompat = PickupMacro or function() end
+
 -- C_ActionBar API compatibility (Retail)
 local C_ActionBarCompat = {}
 if C_ActionBar then
@@ -230,6 +252,9 @@ LAB.Compat = {
     GetSpellLossOfControlCooldown = GetSpellLossOfControlCooldown,
     GetSpellCount = GetSpellCount,
     GetItemCharges = GetItemCharges,
+    PickupSpell = PickupSpellCompat,
+    PickupItem = PickupItemCompat,
+    PickupMacro = PickupMacroCompat,
     GetSpellInfo = GetSpellInfoCompat,
     GetSpellTexture = GetSpellTextureCompat,
     GetSpellCooldown = GetSpellCooldownCompat,
@@ -836,8 +861,8 @@ function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
     self:DebugPrint(string.format("Creating button: %s (action %d)", name, actionID))
 
     -- Create the button frame using Blizzard's secure template (Phase 1 Step 1.1 - FIX)
-    -- NOTE: Template should be passed as a string, not comma-separated
-    local button = CreateFrame("CheckButton", name, parent, "ActionBarButtonTemplate")
+    -- We need BOTH ActionBarButtonTemplate (for visuals) AND SecureActionButtonTemplate (for secure actions)
+    local button = CreateFrame("CheckButton", name, parent, "ActionBarButtonTemplate, SecureActionButtonTemplate")
 
     if not button then
         self:Error("CreateButton: Failed to create button frame!", 2)
@@ -894,6 +919,11 @@ function LAB:InitializeButton(button)
     button.stateTypes = {}     -- Maps state -> button type
     button.stateActions = {}   -- Maps state -> action/spell/item ID
 
+    -- Initialize click behavior (Phase 5)
+    -- Default to false (click-on-up), matching WoW's default behavior
+    button._clickOnDown = false
+    button:SetAttribute('useOnKeyDown', false)
+
     -- Set up scripts
     self:SetupButtonScripts(button)
 end
@@ -927,6 +957,32 @@ function LAB:SetupButtonScripts(button)
     button:SetScript("OnLeave", function(self)
         LAB:OnButtonLeave(self)
     end)
+
+    -- Phase 5: Drag & Drop scripts
+    button:SetScript("OnDragStart", function(self)
+        LAB:OnDragStart(self)
+    end)
+
+    button:SetScript("OnReceiveDrag", function(self)
+        LAB:OnReceiveDrag(self)
+    end)
+
+    -- Phase 5: Visual feedback fixes for click-on-down
+    -- These hooks prevent the pushed texture from getting stuck
+    button:HookScript("OnMouseDown", function(self)
+        if self._clickOnDown and self:GetPushedTexture() then
+            self:GetPushedTexture():SetAlpha(1)
+        end
+    end)
+
+    button:HookScript("OnMouseUp", function(self)
+        if self._clickOnDown and self:GetPushedTexture() then
+            self:GetPushedTexture():SetAlpha(0)
+        end
+    end)
+
+    -- Enable drag by default
+    LAB:EnableDragNDrop(button, true)
 end
 
 function LAB:RegisterButton(button)
@@ -2145,6 +2201,257 @@ end
 function LAB:OnButtonLeave(button)
     GameTooltip:Hide()
     button.UpdateTooltip = nil
+end
+
+-----------------------------------
+-- PHASE 5: INTERACTION SYSTEMS
+-----------------------------------
+
+-----------------------------------
+-- STEP 5.1: SECURE DRAG & DROP
+-----------------------------------
+
+--- Enable or disable drag and drop for a button
+function LAB:EnableDragNDrop(button, enable)
+    if not button then return end
+
+    -- Store drag enabled state
+    button._dragEnabled = enable
+
+    if enable then
+        button:RegisterForDrag("LeftButton")
+        -- When drag is enabled, register both click types for proper drag/drop
+        button:RegisterForClicks("AnyDown", "AnyUp")
+    else
+        button:RegisterForDrag()
+        -- When drag is disabled, respect the click configuration
+        -- This will call SetClickOnDown logic based on version
+        self:SetClickOnDown(button, button._clickOnDown or false)
+    end
+end
+
+--- Handle drag start
+function LAB:OnDragStart(button)
+    if not button or not button._dragEnabled then return end
+    if button._locked then return end  -- Respect lock state
+    if InCombatLockdown() then return end  -- No drag in combat
+
+    -- Pick up the action based on button type
+    if button.buttonType == self.ButtonType.ACTION then
+        if button.action then
+            PickupAction(button.action)
+        end
+    elseif button.buttonType == self.ButtonType.SPELL then
+        if button.buttonAction then
+            PickupSpellCompat(button.buttonAction)
+        end
+    elseif button.buttonType == self.ButtonType.ITEM then
+        if button.buttonAction then
+            PickupItemCompat(button.buttonAction)
+        end
+    elseif button.buttonType == self.ButtonType.MACRO then
+        if button.buttonAction then
+            PickupMacroCompat(button.buttonAction)
+        end
+    end
+end
+
+--- Handle receiving a drag
+function LAB:OnReceiveDrag(button)
+    if not button or not button._dragEnabled then return end
+    if button._locked then return end  -- Respect lock state
+    if InCombatLockdown() then return end  -- No drag in combat
+
+    -- Place the cursor action on this button
+    self:PlaceOnButton(button)
+end
+
+-----------------------------------
+-- STEP 5.2: BUTTON LOCKING
+-----------------------------------
+
+--- Set whether a button is locked (prevents drag/drop)
+function LAB:SetLocked(button, locked)
+    if not button then return end
+    button._locked = locked
+
+    -- Update visual indicator if present
+    if button._lockIndicator then
+        if locked then
+            button._lockIndicator:Show()
+        else
+            button._lockIndicator:Hide()
+        end
+    end
+end
+
+--- Get whether a button is locked
+function LAB:GetLocked(button)
+    if not button then return false end
+    return button._locked or false
+end
+
+--- Create visual lock indicator (optional)
+function LAB:CreateLockIndicator(button)
+    if not button or button._lockIndicator then return end
+
+    button._lockIndicator = button:CreateTexture(nil, "OVERLAY")
+    button._lockIndicator:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon")
+    button._lockIndicator:SetSize(16, 16)
+    button._lockIndicator:SetPoint("TOPRIGHT", button, "TOPRIGHT", -2, -2)
+    button._lockIndicator:Hide()
+end
+
+-----------------------------------
+-- STEP 5.3: CLICK BEHAVIOR CONFIGURATION
+-----------------------------------
+
+--- Set whether button responds to click-on-down vs click-on-up
+-- Uses WoW's secure 'useOnKeyDown' attribute which controls when actions execute
+function LAB:SetClickOnDown(button, clickOnDown)
+    if not button then return end
+    button._clickOnDown = clickOnDown
+
+    -- Set the secure attribute that WoW's action system uses
+    -- This is the key attribute that controls execution timing
+    button:SetAttribute('useOnKeyDown', clickOnDown)
+
+    self:DebugPrint(string.format("SetClickOnDown: %s -> useOnKeyDown = %s",
+        button:GetName() or "unnamed", tostring(clickOnDown)))
+
+    -- Register for clicks based on version
+    -- Retail: Always register both down and up
+    -- Classic: Register only the desired click type
+    if WoWRetail then
+        button:RegisterForClicks("AnyDown", "AnyUp")
+    else
+        if clickOnDown then
+            button:RegisterForClicks("AnyDown")
+        else
+            button:RegisterForClicks("AnyUp")
+        end
+    end
+end
+
+--- Get click behavior
+function LAB:GetClickOnDown(button)
+    if not button then return false end
+    return button._clickOnDown or false
+end
+
+--- Set global click behavior for all buttons
+function LAB:SetGlobalClickOnDown(clickOnDown)
+    self.globalClickOnDown = clickOnDown
+    for _, button in ipairs(self.buttons) do
+        self:SetClickOnDown(button, clickOnDown)
+    end
+end
+
+-----------------------------------
+-- STEP 5.4: CURSOR PICKUP HANDLING
+-----------------------------------
+
+--- Pick up button's action to cursor
+function LAB:PickupButton(button)
+    if not button then return end
+    if InCombatLockdown() then return end  -- No pickup in combat
+
+    -- Pick up based on button type
+    if button.buttonType == self.ButtonType.ACTION then
+        if button.action then
+            PickupAction(button.action)
+        end
+    elseif button.buttonType == self.ButtonType.SPELL then
+        if button.buttonAction then
+            PickupSpellCompat(button.buttonAction)
+        end
+    elseif button.buttonType == self.ButtonType.ITEM then
+        if button.buttonAction then
+            PickupItemCompat(button.buttonAction)
+        end
+    elseif button.buttonType == self.ButtonType.MACRO then
+        if button.buttonAction then
+            PickupMacroCompat(button.buttonAction)
+        end
+    end
+end
+
+--- Place cursor contents onto button
+function LAB:PlaceOnButton(button)
+    if not button then return end
+    if InCombatLockdown() then return end  -- No place in combat
+
+    local cursorType, arg1, arg2, arg3 = GetCursorInfo()
+
+    if not cursorType then
+        -- Nothing on cursor, do nothing (don't clear the button)
+        return
+    end
+
+    -- Place based on button type and what's on cursor
+    if button.buttonType == self.ButtonType.ACTION then
+        if button.action then
+            PlaceAction(button.action)
+            self:UpdateButton(button)
+        end
+    else
+        -- For non-action buttons, we can try to update the button's action
+        if cursorType == "spell" then
+            -- When dragging from spellbook: arg1=slot, arg2=bookType, arg3=spellID
+            -- When dragging from elsewhere: might be different
+            local spellID = arg3 or arg2 or arg1
+            if spellID and type(spellID) == "number" then
+                button.buttonType = self.ButtonType.SPELL
+                button.buttonAction = spellID
+                button.UpdateFunctions = self.SpellTypeUpdateFunctions
+                button:SetAttribute("type", "spell")
+                button:SetAttribute("spell", spellID)
+                ClearCursor()
+                self:UpdateButton(button)
+            end
+        elseif cursorType == "item" then
+            local itemID = arg3 or arg2 or arg1
+            if itemID and type(itemID) == "number" then
+                button.buttonType = self.ButtonType.ITEM
+                button.buttonAction = itemID
+                button.UpdateFunctions = self.ItemTypeUpdateFunctions
+                button:SetAttribute("type", "item")
+                button:SetAttribute("item", itemID)
+                ClearCursor()
+                self:UpdateButton(button)
+            end
+        elseif cursorType == "macro" then
+            local macroID = arg1
+            if macroID and type(macroID) == "number" then
+                button.buttonType = self.ButtonType.MACRO
+                button.buttonAction = macroID
+                button.UpdateFunctions = self.MacroTypeUpdateFunctions
+                button:SetAttribute("type", "macro")
+                button:SetAttribute("macro", macroID)
+                ClearCursor()
+                self:UpdateButton(button)
+            end
+        end
+    end
+end
+
+--- Clear a button's action
+function LAB:ClearButton(button)
+    if not button then return end
+    if InCombatLockdown() then return end  -- No clear in combat
+
+    if button.buttonType == self.ButtonType.ACTION and button.action then
+        PickupAction(button.action)
+        PlaceAction(button.action)  -- This clears it
+        self:UpdateButton(button)
+    else
+        -- For non-action buttons, just clear the type
+        button.buttonType = self.ButtonType.EMPTY
+        button.buttonAction = nil
+        button.UpdateFunctions = nil
+        button:SetAttribute("type", nil)
+        self:UpdateButton(button)
+    end
 end
 
 -----------------------------------
