@@ -594,45 +594,309 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 ---
 
-## Expected Results Summary
+## Phase 6: Configuration & Customization
 
-### Phase 1 (Foundation)
-✅ WoW version detected correctly
-✅ LibStub integration working
-✅ Error handling functional
-✅ Debug mode toggles
+### Test 6.1: Default Configuration
 
-### Phase 2 (Button Types)
-✅ Action buttons created
-✅ Spell buttons created
-✅ Item buttons created
-✅ Macro buttons created
-✅ Custom buttons created
-✅ All types update correctly
+**Objective**: Verify that buttons receive proper default configuration when no custom config is provided.
 
-### Phase 3 (State Management)
-✅ States set and queried correctly
-✅ Button switches between states
-✅ State fallback works
-✅ Clear states resets button
-✅ Paging support functional
-✅ Mixed button types work
-✅ Click behavior changes with state
+**Create button with default config**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T61=L:CreateSpellButton(116,"P6T1_Default",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b=_G.T61;b:SetPoint("CENTER");L:SetButtonSize(b,50,50);L:UpdateConfig(b,nil);b:Show()
+```
 
-### Phase 4 (Retail features may not apply to Classic)
-✅ Charge cooldowns display separately
-✅ Proc glows show/hide correctly
-✅ New action highlights appear
-✅ Equipped items show green border
-✅ LoC cooldowns show red swipe
+**Check default values**:
+```lua
+/run local b=_G.T61;if b and b.config then print("showGrid:",b.config.showGrid);print("showCooldown:",b.config.showCooldown);print("showCount:",b.config.showCount)end
+```
+```lua
+/run local b=_G.T61;if b and b.config then print("showHotkey:",b.config.showHotkey);print("locked:",b.config.locked);print("clickOnDown:",b.config.clickOnDown)end
+```
 
-### Phase 5 (Interaction)
-✅ Drag & drop works for all button types
-✅ Locking prevents drag/drop
-✅ Click-on-down vs click-on-up configurable
-✅ Cursor pickup/place functional
-✅ Combat lockdown enforced
-✅ Clear button works
+**Expected**:
+- showGrid = false
+- showCooldown = true
+- showCount = true
+- showHotkey = true
+- locked = false
+- clickOnDown = false
+
+**Cleanup**:
+```lua
+/run if _G.T61 then _G.T61:Hide();_G.T61:SetParent(nil);_G.T61=nil end
+```
+
+### Test 6.2: Custom Configuration with Deep Merge
+
+**Objective**: Verify custom configuration properly merges with defaults.
+
+**Create button with custom config**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T62=L:CreateSpellButton(116,"P6T2_Custom",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b=_G.T62;b:SetPoint("CENTER");L:SetButtonSize(b,50,50);local cfg={showGrid=true,showHotkey=false,clickOnDown=true,colors={range={r=1.0,g=0.5,b=0.0}}};L:UpdateConfig(b,cfg);b:Show()
+```
+
+**Check merged values**:
+```lua
+/run local b=_G.T62;if b and b.config then print("showGrid:",b.config.showGrid);print("showHotkey:",b.config.showHotkey);print("clickOnDown:",b.config.clickOnDown)end
+```
+```lua
+/run local b=_G.T62;if b and b.config then print("showCooldown:",b.config.showCooldown);print("Range r:",b.config.colors.range.r);print("Power r:",b.config.colors.power.r)end
+```
+
+**Expected**:
+- Custom values override: showGrid=true, showHotkey=false, clickOnDown=true
+- Default preserved: showCooldown=true
+- Deep merge works: range color updated (1.0), power color preserved (0.1)
+
+**Cleanup**:
+```lua
+/run if _G.T62 then _G.T62:Hide();_G.T62:SetParent(nil);_G.T62=nil end
+```
+
+### Test 6.3: Show/Hide Elements
+
+**Note**: First clear action slot 1 if it has anything assigned
+
+**Create test buttons**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T63a=L:CreateButton(1,"P6T3_Grid",UIParent);_G.T63b=L:CreateButton(1,"P6T3_NoGrid",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b1=_G.T63a;b1:SetPoint("CENTER",-30,0);L:SetButtonSize(b1,50,50);L:SetShowGrid(b1,true);b1:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b2=_G.T63b;b2:SetPoint("CENTER",30,0);L:SetButtonSize(b2,50,50);L:SetShowGrid(b2,false);b2:Show()
+```
+
+**Expected**:
+- Left button: Shows grid border when empty
+- Right button: No visible border when empty
+
+**Cleanup grid test**:
+```lua
+/run if _G.T63a then _G.T63a:Hide();_G.T63a:SetParent(nil);_G.T63a=nil end
+```
+```lua
+/run if _G.T63b then _G.T63b:Hide();_G.T63b:SetParent(nil);_G.T63b=nil end
+```
+
+**Test cooldown display** (create action buttons - drag spell with cooldown onto them):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T63c=L:CreateButton(72,"P6T3_CD",UIParent);_G.T63d=L:CreateButton(73,"P6T3_NoCD",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b1=_G.T63c;b1:SetPoint("CENTER",-30,0);L:SetButtonSize(b1,50,50);L:SetShowCooldown(b1,true);b1:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b2=_G.T63d;b2:SetPoint("CENTER",30,0);L:SetButtonSize(b2,50,50);L:SetShowCooldown(b2,false);b2:Show()
+```
+
+**Expected** (drag a spell with cooldown from spellbook, then use it):
+- Left: Cooldown visible (including GCD)
+- Right: Cooldown hidden
+
+**Cleanup cooldown test**:
+```lua
+/run if _G.T63c then _G.T63c:Hide();_G.T63c:SetParent(nil);_G.T63c=nil end
+```
+```lua
+/run if _G.T63d then _G.T63d:Hide();_G.T63d:SetParent(nil);_G.T63d=nil end
+```
+
+**Test text elements** (uses action slot 1 which should have a hotkey):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T63e=L:CreateButton(1,"P6T3_Text",UIParent);_G.T63f=L:CreateButton(1,"P6T3_NoText",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b1=_G.T63e;b1:SetPoint("CENTER",-30,0);L:SetButtonSize(b1,50,50);L:SetShowCount(b1,true);L:SetShowHotkey(b1,true);b1:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b2=_G.T63f;b2:SetPoint("CENTER",30,0);L:SetButtonSize(b2,50,50);L:SetShowCount(b2,false);L:SetShowHotkey(b2,false);b2:Show()
+```
+
+**Expected** (if action slot 1 has a spell with charges/count):
+- Left: Shows count and hotkey text (e.g., "1" hotkey and item count if applicable)
+- Right: Hides all text (no hotkey, no count visible)
+
+**Cleanup text test**:
+```lua
+/run if _G.T63e then _G.T63e:Hide();_G.T63e:SetParent(nil);_G.T63e=nil end
+```
+```lua
+/run if _G.T63f then _G.T63f:Hide();_G.T63f:SetParent(nil);_G.T63f=nil end
+```
+
+### Test 6.4: Range and Mana Coloring
+
+**Note**: Uses action button 1 which should have a ranged spell assigned
+
+**Create buttons with different range coloring modes**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T64a=L:CreateButton(1,"P6T4_BtnRange",UIParent);_G.T64b=L:CreateButton(1,"P6T4_KeyRange",UIParent);_G.T64c=L:CreateButton(1,"P6T4_NoRange",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b1=_G.T64a;b1:SetPoint("CENTER",-60,0);L:SetButtonSize(b1,50,50);L:SetOutOfRangeColoring(b1,"button");b1:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b2=_G.T64b;b2:SetPoint("CENTER",0,0);L:SetButtonSize(b2,50,50);L:SetOutOfRangeColoring(b2,"hotkey");b2:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b3=_G.T64c;b3:SetPoint("CENTER",60,0);L:SetButtonSize(b3,50,50);L:SetOutOfRangeColoring(b3,"none");b3:Show()
+```
+
+**Expected** (move out of range of your target):
+- Left: Entire button tinted red
+- Middle: Only hotkey text tinted red (button stays normal color)
+- Right: No color change (button and text stay normal)
+
+**Cleanup range mode test**:
+```lua
+/run if _G.T64a then _G.T64a:Hide();_G.T64a:SetParent(nil);_G.T64a=nil end
+```
+```lua
+/run if _G.T64b then _G.T64b:Hide();_G.T64b:SetParent(nil);_G.T64b=nil end
+```
+```lua
+/run if _G.T64c then _G.T64c:Hide();_G.T64c:SetParent(nil);_G.T64c=nil end
+```
+
+**Test custom state colors**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T64d=L:CreateButton(1,"P6T4_Custom",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b=_G.T64d;b:SetPoint("CENTER");L:SetButtonSize(b,50,50);L:SetOutOfRangeColoring(b,"button");L:SetStateColor(b,"range",1.0,0.5,0.0);b:Show()
+```
+
+**Expected** (move out of range):
+- Button tinted custom orange instead of default red
+
+**Cleanup custom color test**:
+```lua
+/run if _G.T64d then _G.T64d:Hide();_G.T64d:SetParent(nil);_G.T64d=nil end
+```
+
+### Test 6.5: Text Customization
+
+**Note**: Uses action button 1 which should have a hotkey assigned
+
+**Test text justification**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T65a=L:CreateButton(1,"P6T5_Left",UIParent);_G.T65b=L:CreateButton(1,"P6T5_Center",UIParent);_G.T65c=L:CreateButton(1,"P6T5_Right",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b1=_G.T65a;b1:SetPoint("CENTER",-60,0);L:SetButtonSize(b1,50,50);L:SetTextJustifyH(b1,"hotkey","LEFT");b1:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b2=_G.T65b;b2:SetPoint("CENTER",0,0);L:SetButtonSize(b2,50,50);L:SetTextJustifyH(b2,"hotkey","CENTER");b2:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b3=_G.T65c;b3:SetPoint("CENTER",60,0);L:SetButtonSize(b3,50,50);L:SetTextJustifyH(b3,"hotkey","RIGHT");b3:Show()
+```
+
+**Expected**:
+- Left: Hotkey left-aligned
+- Middle: Hotkey centered
+- Right: Hotkey right-aligned
+
+**Cleanup justification test**:
+```lua
+/run if _G.T65a then _G.T65a:Hide();_G.T65a:SetParent(nil);_G.T65a=nil end
+```
+```lua
+/run if _G.T65b then _G.T65b:Hide();_G.T65b:SetParent(nil);_G.T65b=nil end
+```
+```lua
+/run if _G.T65c then _G.T65c:Hide();_G.T65c:SetParent(nil);_G.T65c=nil end
+```
+
+**Test text font and size**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T65d=L:CreateButton(1,"P6T5_Small",UIParent);_G.T65e=L:CreateButton(1,"P6T5_Large",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b1=_G.T65d;b1:SetPoint("CENTER",-30,0);L:SetButtonSize(b1,50,50);L:SetTextFont(b1,"hotkey","Fonts\\FRIZQT__.TTF",8,"OUTLINE");b1:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b2=_G.T65e;b2:SetPoint("CENTER",30,0);L:SetButtonSize(b2,50,50);L:SetTextFont(b2,"hotkey","Fonts\\FRIZQT__.TTF",20,"THICKOUTLINE");b2:Show()
+```
+
+**Expected**:
+- Left: Small text (8px)
+- Right: Large text (20px)
+
+**Cleanup font size test**:
+```lua
+/run if _G.T65d then _G.T65d:Hide();_G.T65d:SetParent(nil);_G.T65d=nil end
+```
+```lua
+/run if _G.T65e then _G.T65e:Hide();_G.T65e:SetParent(nil);_G.T65e=nil end
+```
+
+**Test text color**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T65f=L:CreateButton(1,"P6T5_Red",UIParent);_G.T65g=L:CreateButton(1,"P6T5_Green",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b1=_G.T65f;b1:SetPoint("CENTER",-30,0);L:SetButtonSize(b1,50,50);L:SetTextColor(b1,"hotkey",1.0,0.0,0.0,1.0);b1:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b2=_G.T65g;b2:SetPoint("CENTER",30,0);L:SetButtonSize(b2,50,50);L:SetTextColor(b2,"hotkey",0.0,1.0,0.0,1.0);b2:Show()
+```
+
+**Expected**:
+- Left: Red hotkey text
+- Right: Green hotkey text
+
+**Cleanup text color test**:
+```lua
+/run if _G.T65f then _G.T65f:Hide();_G.T65f:SetParent(nil);_G.T65f=nil end
+```
+```lua
+/run if _G.T65g then _G.T65g:Hide();_G.T65g:SetParent(nil);_G.T65g=nil end
+```
+
+### Test 6.6: Configuration Persistence
+
+**Objective**: Verify configuration survives button updates.
+
+**Create button with custom config**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T66=L:CreateButton(1,"P6T6_Persist",UIParent)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b=_G.T66;b:SetPoint("CENTER");L:SetButtonSize(b,50,50);local cfg={showGrid=true,showHotkey=false,clickOnDown=true,colors={range={r=1.0,g=0.5,b=0.0}}};L:UpdateConfig(b,cfg);b:Show()
+```
+
+**Check config before update**:
+```lua
+/run local b=_G.T66;print("BEFORE:");print("  showGrid:",b.config.showGrid);print("  showHotkey:",b.config.showHotkey);print("  clickOnDown:",b.config.clickOnDown);print("  Range r:",b.config.colors.range.r)
+```
+
+**Force button update (simulates button refresh)**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:UpdateButton(_G.T66)
+```
+
+**Check config after update**:
+```lua
+/run local b=_G.T66;print("AFTER:");print("  showGrid:",b.config.showGrid);print("  showHotkey:",b.config.showHotkey);print("  clickOnDown:",b.config.clickOnDown);print("  Range r:",b.config.colors.range.r)
+```
+
+**Expected**:
+- All config values remain the same after UpdateButton
+- Button appearance stays consistent (no hotkey visible since showHotkey=false)
+
+**Cleanup**:
+```lua
+/run if _G.T66 then _G.T66:Hide();_G.T66:SetParent(nil);_G.T66=nil end
+```
 
 ---
 

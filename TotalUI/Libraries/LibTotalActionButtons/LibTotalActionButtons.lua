@@ -1606,12 +1606,12 @@ function LAB:UpdateAction(button)
     button._state.hasAction = hasAction
 
     if hasAction then
-        -- Action exists
+        -- Action exists: ensure normal texture uses default appearance
         if button._normalTexture then
             button._normalTexture:SetVertexColor(1, 1, 1, 1)
         end
     else
-        -- No action
+        -- No action: UpdateGrid will handle showing/hiding the grid
         if button._normalTexture then
             button._normalTexture:SetVertexColor(1, 1, 1, 0.5)
         end
@@ -1648,7 +1648,33 @@ end
 function LAB:UpdateCount(button)
     if not button or not button._count then return end
 
-    -- Use UpdateFunctions if available (Phase 2)
+    -- Check if count should be shown
+    local showCount = true
+    if button.config and button.config.showCount ~= nil then
+        showCount = button.config.showCount
+    end
+
+    -- Check for charges first (for charge-based abilities)
+    local charges, maxCharges
+    if button.UpdateFunctions and button.UpdateFunctions.GetActionCharges then
+        charges, maxCharges = button.UpdateFunctions.GetActionCharges(button)
+    elseif button.action and self.Compat and self.Compat.GetActionCharges then
+        charges, maxCharges = self.Compat.GetActionCharges(button.action)
+    end
+
+    -- If it's a charge-based ability, show current charges
+    if charges and maxCharges and maxCharges > 1 then
+        if showCount then
+            button._count:SetText(charges)
+            button._count:Show()
+        else
+            button._count:SetText("")
+            button._count:Hide()
+        end
+        return
+    end
+
+    -- Otherwise, check for regular item counts
     local count
     if button.UpdateFunctions and button.UpdateFunctions.GetActionCount then
         count = button.UpdateFunctions.GetActionCount(button)
@@ -1657,7 +1683,7 @@ function LAB:UpdateCount(button)
         count = GetActionCount(button.action)
     end
 
-    if count and count > 1 then
+    if count and count > 1 and showCount then
         button._count:SetText(count)
         button._count:Show()
     else
@@ -1702,6 +1728,12 @@ function LAB:UpdateCooldown(button)
         charges, maxCharges, chargeStart, chargeDuration = self.Compat.GetActionCharges(button.action)
     end
 
+    -- Check if cooldowns should be shown at all
+    local showCooldown = true
+    if button.config and button.config.showCooldown ~= nil then
+        showCooldown = button.config.showCooldown
+    end
+
     -- Handle charge-based abilities
     if charges and maxCharges and maxCharges > 1 then
         -- Create charge cooldown frame if needed (Retail only)
@@ -1710,7 +1742,7 @@ function LAB:UpdateCooldown(button)
         end
 
         if button.chargeCooldown then
-            if charges < maxCharges and chargeStart and chargeDuration then
+            if charges < maxCharges and chargeStart and chargeDuration and showCooldown then
                 -- Show next charge cooldown
                 button.chargeCooldown:SetCooldown(chargeStart, chargeDuration)
                 button.chargeCooldown:Show()
@@ -1720,7 +1752,7 @@ function LAB:UpdateCooldown(button)
         end
 
         -- Main cooldown only shows when all charges depleted
-        if charges == 0 and start and duration and enable == 1 then
+        if charges == 0 and start and duration and enable == 1 and showCooldown then
             button._cooldown:SetCooldown(start, duration)
             button._cooldown:Show()
         else
@@ -1742,7 +1774,11 @@ function LAB:UpdateCooldown(button)
                 button._cooldown:SetSwipeColor(0.17, 0, 0)
             end
             button._cooldown.currentCooldownType = "LoC"
-            button._cooldown:Show()
+            if showCooldown then
+                button._cooldown:Show()
+            else
+                button._cooldown:Hide()
+            end
             return
         end
     end
@@ -1757,7 +1793,11 @@ function LAB:UpdateCooldown(button)
             button._cooldown:SetSwipeColor(0, 0, 0, 0.8)
         end
         button._cooldown.currentCooldownType = "normal"
-        button._cooldown:Show()
+        if showCooldown then
+            button._cooldown:Show()
+        else
+            button._cooldown:Hide()
+        end
     else
         button._cooldown:Hide()
     end
@@ -1970,8 +2010,14 @@ function LAB:UpdateHotkey(button)
     local action = button.action
     if not action or not button._hotkey then return end
 
+    -- Check if hotkey should be shown
+    local showHotkey = true
+    if button.config and button.config.showHotkey ~= nil then
+        showHotkey = button.config.showHotkey
+    end
+
     local key = GetBindingKey("ACTIONBUTTON" .. action)
-    if key then
+    if key and showHotkey then
         -- Abbreviate the key text
         key = key:gsub("SHIFT%-", "S")
         key = key:gsub("CTRL%-", "C")
@@ -2028,15 +2074,36 @@ function LAB:UpdateUsable(button)
     button._state.usable = isUsable
     button._state.hasPower = not notEnoughMana
 
+    -- Get mana coloring mode from config (Phase 6)
+    local manaColoringMode = "button" -- default
+    if button.config and button.config.outOfManaColoring then
+        manaColoringMode = button.config.outOfManaColoring
+    end
+
     if isUsable then
         -- Usable - normal color
         button._icon:SetVertexColor(1, 1, 1)
+        -- Also restore hotkey color if it was tinted
+        if button._hotkey then
+            if button.config and button.config.text and button.config.text.hotkey and button.config.text.hotkey.color then
+                local hkColor = button.config.text.hotkey.color
+                button._hotkey:SetVertexColor(hkColor.r or 1, hkColor.g or 1, hkColor.b or 1, hkColor.a or 1)
+            else
+                button._hotkey:SetVertexColor(1, 1, 1, 1)
+            end
+        end
     elseif notEnoughMana then
-        -- Out of power - blue tint
+        -- Out of power - apply coloring based on mode
         local color = button._colors.mana
-        button._icon:SetVertexColor(color[1], color[2], color[3])
+        if manaColoringMode == "button" then
+            button._icon:SetVertexColor(color[1], color[2], color[3])
+        elseif manaColoringMode == "hotkey" and button._hotkey then
+            button._icon:SetVertexColor(1, 1, 1) -- Keep icon normal
+            button._hotkey:SetVertexColor(color[1], color[2], color[3])
+        end
+        -- "none" mode - don't color anything
     else
-        -- Not usable - gray
+        -- Not usable - gray (always apply to icon, regardless of coloring mode)
         local color = button._colors.unusable
         button._icon:SetVertexColor(color[1], color[2], color[3])
     end
@@ -2060,13 +2127,39 @@ function LAB:UpdateRange(button)
     -- Only apply range coloring if the action is usable
     if not button._state.usable then return end
 
+    -- Get range coloring mode from config (Phase 6)
+    local coloringMode = "button" -- default
+    if button.config and button.config.outOfRangeColoring then
+        coloringMode = button.config.outOfRangeColoring
+    end
+
+    -- Don't color anything if mode is "none"
+    if coloringMode == "none" then
+        return
+    end
+
+    local color = button._colors.range
+
     if inRange == false then
-        -- Out of range - red tint
-        local color = button._colors.range
-        button._icon:SetVertexColor(color[1], color[2], color[3])
+        -- Out of range - apply coloring based on mode
+        if coloringMode == "button" then
+            button._icon:SetVertexColor(color[1], color[2], color[3])
+        elseif coloringMode == "hotkey" and button._hotkey then
+            button._hotkey:SetVertexColor(color[1], color[2], color[3])
+        end
     elseif inRange == true then
-        -- In range - normal color
-        button._icon:SetVertexColor(1, 1, 1)
+        -- In range - restore normal colors
+        if coloringMode == "button" then
+            button._icon:SetVertexColor(1, 1, 1)
+        elseif coloringMode == "hotkey" and button._hotkey then
+            -- Restore hotkey to its configured color or white
+            if button.config and button.config.text and button.config.text.hotkey and button.config.text.hotkey.color then
+                local hkColor = button.config.text.hotkey.color
+                button._hotkey:SetVertexColor(hkColor.r or 1, hkColor.g or 1, hkColor.b or 1, hkColor.a or 1)
+            else
+                button._hotkey:SetVertexColor(1, 1, 1, 1)
+            end
+        end
     end
     -- nil means no range restriction
 end
@@ -2091,15 +2184,28 @@ function LAB:UpdateVisualState(button)
 end
 
 function LAB:UpdateGrid(button)
-    if button._showGrid then
-        -- Show empty button backgrounds
+    if not button then return end
+
+    if button._state.hasAction then
+        -- Has action: always show button normally
         button:SetAlpha(1)
+        if button._normalTexture then
+            button._normalTexture:SetAlpha(1)
+        end
     else
-        -- Hide empty buttons
-        if button._state.hasAction then
+        -- No action: show grid or hide based on _showGrid
+        if button._showGrid then
+            -- Show grid: show button with reduced opacity for empty state
             button:SetAlpha(1)
+            if button._normalTexture then
+                button._normalTexture:SetAlpha(0.5)
+            end
         else
-            button:SetAlpha(0)
+            -- Hide grid: hide the normal texture but keep button interactive
+            button:SetAlpha(1)  -- Keep button frame visible for interaction
+            if button._normalTexture then
+                button._normalTexture:SetAlpha(0)  -- Hide only the visual texture
+            end
         end
     end
 end
@@ -2455,13 +2561,509 @@ function LAB:ClearButton(button)
 end
 
 -----------------------------------
--- CONFIGURATION
+-- PHASE 6: CONFIGURATION & CUSTOMIZATION
 -----------------------------------
 
+-----------------------------------
+-- STEP 6.1: DEFAULT CONFIGURATION
+-----------------------------------
+
+LAB.DefaultConfig = {
+    -- Visual elements
+    showGrid = false,
+    showCooldown = true,
+    showCooldownNumbers = true,
+    showCount = true,
+    showHotkey = true,
+    showMacroText = true,
+    showTooltip = "enabled",  -- "enabled", "disabled", "nocombat"
+
+    -- Element hiding
+    hideElements = {
+        macro = false,
+        hotkey = false,
+        equipped = false,
+    },
+
+    -- Colors
+    colors = {
+        range = { r = 0.8, g = 0.1, b = 0.1 },
+        power = { r = 0.1, g = 0.3, b = 1.0 },
+        usable = { r = 1.0, g = 1.0, b = 1.0 },
+        unusable = { r = 0.4, g = 0.4, b = 0.4 },
+    },
+
+    -- Text configuration
+    text = {
+        hotkey = {
+            font = "Fonts\\FRIZQT__.TTF",
+            size = 12,
+            flags = "OUTLINE",
+            color = { r = 1, g = 1, b = 1, a = 1 },
+            position = {
+                anchor = "TOPRIGHT",
+                relAnchor = "TOPRIGHT",
+                offsetX = -2,
+                offsetY = -2,
+            },
+            justifyH = "RIGHT",
+        },
+        count = {
+            font = "Fonts\\FRIZQT__.TTF",
+            size = 16,
+            flags = "OUTLINE",
+            color = { r = 1, g = 1, b = 1, a = 1 },
+            position = {
+                anchor = "BOTTOMRIGHT",
+                relAnchor = "BOTTOMRIGHT",
+                offsetX = -2,
+                offsetY = 2,
+            },
+            justifyH = "RIGHT",
+        },
+        macro = {
+            font = "Fonts\\FRIZQT__.TTF",
+            size = 10,
+            flags = "OUTLINE",
+            color = { r = 1, g = 1, b = 1, a = 1 },
+            position = {
+                anchor = "BOTTOM",
+                relAnchor = "BOTTOM",
+                offsetX = 0,
+                offsetY = 2,
+            },
+            justifyH = "CENTER",
+        },
+    },
+
+    -- Coloring options
+    outOfRangeColoring = "button",  -- "button" or "hotkey"
+    outOfManaColoring = "button",   -- "button" or "hotkey"
+    desaturateUnusable = false,
+
+    -- Interaction
+    allowDragAndDrop = true,
+    locked = false,
+    clickOnDown = false,
+}
+
+-----------------------------------
+-- STEP 6.2: DEEP CONFIG MERGING
+-----------------------------------
+
+--- Deep merge two tables (source into dest)
+function LAB:DeepMerge(dest, source)
+    if type(dest) ~= "table" or type(source) ~= "table" then
+        return source
+    end
+
+    for k, v in pairs(source) do
+        if type(v) == "table" and type(dest[k]) == "table" then
+            dest[k] = self:DeepMerge(dest[k], v)
+        else
+            dest[k] = v
+        end
+    end
+
+    return dest
+end
+
+--- Create a deep copy of a table
+function LAB:DeepCopy(tbl)
+    if type(tbl) ~= "table" then
+        return tbl
+    end
+
+    local copy = {}
+    for k, v in pairs(tbl) do
+        copy[k] = self:DeepCopy(v)
+    end
+
+    return copy
+end
+
+--- Update button configuration with deep merging
 function LAB:UpdateConfig(button, config)
-    button.config = config
+    if not button then return end
+
+    -- Deep copy default config
+    local mergedConfig = self:DeepCopy(self.DefaultConfig)
+
+    -- Deep merge user config
+    if config then
+        mergedConfig = self:DeepMerge(mergedConfig, config)
+    end
+
+    -- Store merged config
+    button.config = mergedConfig
+
+    -- Apply configuration
+    self:ApplyConfig(button)
+end
+
+--- Apply configuration to button
+function LAB:ApplyConfig(button)
+    if not button or not button.config then return end
+
+    local config = button.config
+
+    -- Apply grid visibility
+    if config.showGrid ~= nil then
+        button._showGrid = config.showGrid
+    end
+
+    -- Apply element visibility
+    self:ApplyElementVisibility(button, config)
+
+    -- Apply text configuration
+    self:ApplyTextConfig(button, config)
+
+    -- Apply interaction settings
+    if config.allowDragAndDrop ~= nil then
+        self:EnableDragNDrop(button, config.allowDragAndDrop)
+    end
+
+    if config.locked ~= nil then
+        self:SetLocked(button, config.locked)
+    end
+
+    if config.clickOnDown ~= nil then
+        self:SetClickOnDown(button, config.clickOnDown)
+    end
+
+    -- Restyle and update
     self:StyleButton(button, config)
     self:UpdateButton(button)
+end
+
+--- Apply element visibility from config
+function LAB:ApplyElementVisibility(button, config)
+    if not button or not config then return end
+
+    -- Apply show/hide for each element
+    if button._hotkey then
+        if config.hideElements.hotkey or not config.showHotkey then
+            button._hotkey:Hide()
+        else
+            button._hotkey:Show()
+        end
+    end
+
+    if button._count then
+        if not config.showCount then
+            button._count:Hide()
+        else
+            button._count:Show()
+        end
+    end
+
+    if button._name then
+        if config.hideElements.macro or not config.showMacroText then
+            button._name:Hide()
+        else
+            button._name:Show()
+        end
+    end
+
+    if button._cooldown then
+        if not config.showCooldown then
+            button._cooldown:Hide()
+        else
+            button._cooldown:Show()
+        end
+    end
+end
+
+--- Apply text configuration
+function LAB:ApplyTextConfig(button, config)
+    if not button or not config or not config.text then return end
+
+    -- Apply hotkey text config
+    if button._hotkey and config.text.hotkey then
+        local hkConfig = config.text.hotkey
+        if hkConfig.font and hkConfig.size and hkConfig.flags then
+            button._hotkey:SetFont(hkConfig.font, hkConfig.size, hkConfig.flags)
+        end
+        if hkConfig.color then
+            button._hotkey:SetTextColor(hkConfig.color.r, hkConfig.color.g, hkConfig.color.b, hkConfig.color.a or 1)
+        end
+        if hkConfig.justifyH then
+            button._hotkey:SetJustifyH(hkConfig.justifyH)
+        end
+        if hkConfig.position then
+            button._hotkey:ClearAllPoints()
+            button._hotkey:SetPoint(
+                hkConfig.position.anchor,
+                button,
+                hkConfig.position.relAnchor,
+                hkConfig.position.offsetX,
+                hkConfig.position.offsetY
+            )
+        end
+    end
+
+    -- Apply count text config
+    if button._count and config.text.count then
+        local countConfig = config.text.count
+        if countConfig.font and countConfig.size and countConfig.flags then
+            button._count:SetFont(countConfig.font, countConfig.size, countConfig.flags)
+        end
+        if countConfig.color then
+            button._count:SetTextColor(countConfig.color.r, countConfig.color.g, countConfig.color.b, countConfig.color.a or 1)
+        end
+        if countConfig.justifyH then
+            button._count:SetJustifyH(countConfig.justifyH)
+        end
+        if countConfig.position then
+            button._count:ClearAllPoints()
+            button._count:SetPoint(
+                countConfig.position.anchor,
+                button,
+                countConfig.position.relAnchor,
+                countConfig.position.offsetX,
+                countConfig.position.offsetY
+            )
+        end
+    end
+
+    -- Apply macro text config
+    if button._name and config.text.macro then
+        local macroConfig = config.text.macro
+        if macroConfig.font and macroConfig.size and macroConfig.flags then
+            button._name:SetFont(macroConfig.font, macroConfig.size, macroConfig.flags)
+        end
+        if macroConfig.color then
+            button._name:SetTextColor(macroConfig.color.r, macroConfig.color.g, macroConfig.color.b, macroConfig.color.a or 1)
+        end
+        if macroConfig.justifyH then
+            button._name:SetJustifyH(macroConfig.justifyH)
+        end
+        if macroConfig.position then
+            button._name:ClearAllPoints()
+            button._name:SetPoint(
+                macroConfig.position.anchor,
+                button,
+                macroConfig.position.relAnchor,
+                macroConfig.position.offsetX,
+                macroConfig.position.offsetY
+            )
+        end
+    end
+end
+
+-----------------------------------
+-- STEP 6.3: PER-ELEMENT SHOW/HIDE METHODS
+-----------------------------------
+
+--- Show or hide the grid on empty buttons
+function LAB:SetShowGrid(button, show)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.showGrid = show
+    button._showGrid = show  -- UpdateGrid checks this value
+    self:UpdateButton(button)
+end
+
+--- Show or hide cooldown displays
+function LAB:SetShowCooldown(button, show)
+    if not button or not button._cooldown then return end
+    button.config = button.config or {}
+    button.config.showCooldown = show
+
+    if show then
+        button._cooldown:Show()
+    else
+        button._cooldown:Hide()
+    end
+end
+
+--- Show or hide count text
+function LAB:SetShowCount(button, show)
+    if not button or not button._count then return end
+    button.config = button.config or {}
+    button.config.showCount = show
+
+    if show then
+        button._count:Show()
+    else
+        button._count:Hide()
+    end
+    self:UpdateButton(button)
+end
+
+--- Show or hide hotkey text
+function LAB:SetShowHotkey(button, show)
+    if not button or not button._hotkey then return end
+    button.config = button.config or {}
+    button.config.showHotkey = show
+
+    if show then
+        button._hotkey:Show()
+    else
+        button._hotkey:Hide()
+    end
+    self:UpdateButton(button)
+end
+
+--- Show or hide macro text
+function LAB:SetShowMacroText(button, show)
+    if not button or not button._name then return end
+    button.config = button.config or {}
+    button.config.showMacroText = show
+
+    if show then
+        button._name:Show()
+    else
+        button._name:Hide()
+    end
+    self:UpdateButton(button)
+end
+
+--- Set tooltip mode
+-- @param mode "enabled", "disabled", or "nocombat"
+function LAB:SetShowTooltip(button, mode)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.showTooltip = mode
+end
+
+-----------------------------------
+-- STEP 6.4: RANGE/MANA COLORING OPTIONS
+-----------------------------------
+
+--- Set out of range coloring mode
+-- @param mode "button" or "hotkey"
+function LAB:SetOutOfRangeColoring(button, mode)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.outOfRangeColoring = mode
+    self:UpdateButton(button)
+end
+
+--- Set out of mana coloring mode
+-- @param mode "button" or "hotkey"
+function LAB:SetOutOfManaColoring(button, mode)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.outOfManaColoring = mode
+    self:UpdateButton(button)
+end
+
+--- Set desaturation for unusable actions
+function LAB:SetDesaturateUnusable(button, desaturate)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.desaturateUnusable = desaturate
+    self:UpdateButton(button)
+end
+
+--- Set custom color for a specific state
+-- @param colorType "range", "power", "usable", or "unusable"
+-- @param r, g, b Color values 0-1
+function LAB:SetStateColor(button, colorType, r, g, b)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.colors = button.config.colors or {}
+    button.config.colors[colorType] = { r = r, g = g, b = b }
+
+    -- Also update button._colors (array format used by update functions)
+    button._colors = button._colors or {}
+    button._colors[colorType] = { r, g, b }
+
+    self:UpdateButton(button)
+end
+
+-----------------------------------
+-- STEP 6.5: TEXT ALIGNMENT OPTIONS
+-----------------------------------
+
+--- Set text justification
+-- @param element "hotkey", "count", or "macro"
+-- @param justifyH "LEFT", "CENTER", or "RIGHT"
+function LAB:SetTextJustifyH(button, element, justifyH)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.text = button.config.text or {}
+    button.config.text[element] = button.config.text[element] or {}
+    button.config.text[element].justifyH = justifyH
+
+    local textElement = element == "hotkey" and button._hotkey
+                     or element == "count" and button._count
+                     or element == "macro" and button._name
+
+    if textElement then
+        textElement:SetJustifyH(justifyH)
+    end
+end
+
+--- Set text font
+-- @param element "hotkey", "count", or "macro"
+-- @param font Font path
+-- @param size Font size
+-- @param flags Font flags ("OUTLINE", "THICKOUTLINE", "MONOCHROME", etc.)
+function LAB:SetTextFont(button, element, font, size, flags)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.text = button.config.text or {}
+    button.config.text[element] = button.config.text[element] or {}
+    button.config.text[element].font = font
+    button.config.text[element].size = size
+    button.config.text[element].flags = flags
+
+    local textElement = element == "hotkey" and button._hotkey
+                     or element == "count" and button._count
+                     or element == "macro" and button._name
+
+    if textElement then
+        textElement:SetFont(font, size, flags)
+    end
+end
+
+--- Set text color
+-- @param element "hotkey", "count", or "macro"
+-- @param r, g, b, a Color values 0-1
+function LAB:SetTextColor(button, element, r, g, b, a)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.text = button.config.text or {}
+    button.config.text[element] = button.config.text[element] or {}
+    button.config.text[element].color = { r = r, g = g, b = b, a = a or 1 }
+
+    local textElement = element == "hotkey" and button._hotkey
+                     or element == "count" and button._count
+                     or element == "macro" and button._name
+
+    if textElement then
+        textElement:SetTextColor(r, g, b, a or 1)
+    end
+end
+
+--- Set text position
+-- @param element "hotkey", "count", or "macro"
+-- @param anchor Anchor point
+-- @param relAnchor Relative anchor point
+-- @param offsetX X offset
+-- @param offsetY Y offset
+function LAB:SetTextPosition(button, element, anchor, relAnchor, offsetX, offsetY)
+    if not button then return end
+    button.config = button.config or {}
+    button.config.text = button.config.text or {}
+    button.config.text[element] = button.config.text[element] or {}
+    button.config.text[element].position = {
+        anchor = anchor,
+        relAnchor = relAnchor,
+        offsetX = offsetX,
+        offsetY = offsetY,
+    }
+
+    local textElement = element == "hotkey" and button._hotkey
+                     or element == "count" and button._count
+                     or element == "macro" and button._name
+
+    if textElement then
+        textElement:ClearAllPoints()
+        textElement:SetPoint(anchor, button, relAnchor, offsetX, offsetY)
+    end
 end
 
 -----------------------------------
