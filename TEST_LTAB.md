@@ -900,6 +900,304 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 ---
 
+# Phase 7: Integration & Extensibility
+
+## Test 7.1: CallbackHandler Integration
+
+### Test callback registration
+
+**Create callback object**:
+```lua
+/run _G.TestCallbacks = {}; _G.TestCallbacks.OnCreated = function(self, event, button) print("Callback: OnButtonCreated") end
+```
+
+**Register callback**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCallbacks, "OnButtonCreated", "OnCreated"); print("Callback registered")
+```
+
+**Expected**:
+- Message confirms callback registered
+- No errors
+
+### Test OnButtonCreated callback
+
+**Script**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(5, "TestButton7_1", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71 = btn; print("Button created")
+```
+
+**Expected**:
+- Message "Callback: OnButtonCreated" appears from the callback registered above
+- Button visible at center of screen
+
+**Cleanup**:
+```lua
+/run if _G.T71 then _G.T71:Hide();_G.T71:SetParent(nil);_G.T71=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCallbacks,"OnButtonCreated"); _G.TestCallbacks=nil
+```
+
+### Test OnButtonUpdate callback
+
+**Create callback and register**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); _G.UpdateCount = 0; _G.TestCB2 = {}; _G.TestCB2.OnUpdate = function(self, event, button) _G.UpdateCount = _G.UpdateCount + 1 end; LAB.RegisterCallback(_G.TestCB2, "OnButtonUpdate", "OnUpdate")
+```
+
+**Create button**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1b", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71b = btn; print("Update callbacks: " .. _G.UpdateCount)
+```
+
+**Expected**:
+- Message shows update count > 0 (at least 1 from initial update)
+- Button visible
+
+**Cleanup**:
+```lua
+/run if _G.T71b then _G.T71b:Hide();_G.T71b:SetParent(nil);_G.T71b=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCB2,"OnButtonUpdate"); _G.UpdateCount=nil; _G.TestCB2=nil
+```
+
+### Test OnButtonContentsChanged callback
+
+**Create callback**:
+```lua
+/run _G.TestCB3 = {}; _G.TestCB3.OnChange = function(self, event, button) print("Contents changed!") end; local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCB3, "OnButtonContentsChanged", "OnChange")
+```
+
+**Create button**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1c", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71c = btn
+```
+
+**Expected**:
+- Button visible with action 1 contents
+- Try removing/adding an ability to action slot 1 to trigger callback
+
+**Cleanup**:
+```lua
+/run if _G.T71c then _G.T71c:Hide();_G.T71c:SetParent(nil);_G.T71c=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCB3,"OnButtonContentsChanged"); _G.TestCB3=nil
+```
+
+### Test OnButtonEnter/Leave callbacks
+
+**Create callback object**:
+```lua
+/run _G.TestCB4 = {}; _G.TestCB4.OnEnter = function(self, event, button) print("Mouse entered") end; _G.TestCB4.OnLeave = function(self, event, button) print("Mouse left") end
+```
+
+**Register callbacks**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCB4, "OnButtonEnter", "OnEnter"); LAB.RegisterCallback(_G.TestCB4, "OnButtonLeave", "OnLeave")
+```
+
+**Create button**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1d", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71d = btn
+```
+
+**Expected**:
+- Button visible
+- Moving mouse over button prints "Mouse entered"
+- Moving mouse away prints "Mouse left"
+
+**Cleanup**:
+```lua
+/run if _G.T71d then _G.T71d:Hide();_G.T71d:SetParent(nil);_G.T71d=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCB4,"OnButtonEnter"); LAB.UnregisterCallback(_G.TestCB4,"OnButtonLeave"); _G.TestCB4=nil
+```
+
+### Test OnButtonStateChanged callback
+
+**Create callback object**:
+```lua
+/run _G.TestCB5 = {}; _G.TestCB5.OnStateChange = function(self, event, button, newState, oldState) print("State: " .. tostring(oldState) .. " -> " .. tostring(newState)) end
+```
+
+**Register callback**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCB5, "OnButtonStateChanged", "OnStateChange")
+```
+
+**Create button and set state 0**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1e", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); LAB:SetState(btn, "0", "action", 1); btn:Show(); _G.T71e = btn
+```
+
+**Expected**:
+- Button visible with action slot 1
+
+**Enable debug mode**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true)
+```
+
+**Set state 1 and change state**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetState(_G.T71e, "1", "spell", 133); LAB:UpdateState(_G.T71e, "1")
+```
+
+**Expected**:
+- Message "State: 0 -> 1" appears
+- Button changes to Fireball spell (spell ID 133)
+- Debug output showing property changes during state transition
+
+**Check properties after state change**:
+```lua
+/run local btn = _G.T71e; print(string.format("FINAL: type=%s action=%s spellID=%s", tostring(btn.buttonType), tostring(btn.action), tostring(btn.spellID)))
+```
+
+**Expected**:
+- `type=spell action=0 spellID=133`
+- (action=0 is an invalid slot, safe for Blizzard's template code)
+
+**Cleanup**:
+```lua
+/run if _G.T71e then _G.T71e:Hide();_G.T71e:SetParent(nil);_G.T71e=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(false); LAB.UnregisterCallback(_G.TestCB5,"OnButtonStateChanged"); _G.TestCB5=nil
+```
+
+---
+
+## Test 7.2: Masque Support
+
+### Load Masque (if Load on Demand)
+
+**Script**:
+```lua
+/run C_AddOns.LoadAddOn("Masque")
+```
+
+**Expected**:
+- No output (addon loads silently if installed)
+
+### Test Masque availability check
+
+**Script**:
+```lua
+/run local MSQ = LibStub("Masque", true); if MSQ then print("Masque is available") else print("Masque not installed - skipping Masque tests") end
+```
+
+**Expected**:
+- Message indicates if Masque is available
+- If not available, skip remaining Masque tests
+
+### Test adding button to Masque (if Masque available)
+
+**Create and add to Masque**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_2", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); LAB:AddToMasque(btn); _G.T72 = btn
+```
+
+**Check result**:
+```lua
+/run print("Button skinned: " .. tostring(_G.T72._masqueSkinned))
+```
+
+**Expected**:
+- Button visible
+- Message shows "skinned: true" if Masque available
+- Button may have Masque skin applied (depends on active Masque skin)
+
+**Cleanup**:
+```lua
+/run if _G.T72 then local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:RemoveFromMasque(_G.T72); _G.T72:Hide(); _G.T72:SetParent(nil); _G.T72=nil end
+```
+
+---
+
+## Test 7.3: LibKeyBound Integration
+
+### Load LibKeyBound (Load on Demand)
+
+**Script** (addon folder is LibKeyBound-1.0):
+```lua
+/run local loaded, reason = C_AddOns.LoadAddOn("LibKeyBound-1.0"); print("Loaded:", loaded, "Reason:", reason or "success")
+```
+
+**Expected**:
+- Message shows "Loaded: true Reason: success"
+
+### Test LibKeyBound availability check
+
+**Script**:
+```lua
+/run local LKB = LibStub("LibKeyBound-1.0", true); if LKB then print("LibKeyBound is available") else print("LibKeyBound not installed - skipping LibKeyBound tests") end
+```
+
+**Expected**:
+- Message indicates if LibKeyBound is available
+- If not available, skip remaining LibKeyBound tests
+
+### Test enabling LibKeyBound for button (if LibKeyBound available)
+
+**Create button**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); _G.T73 = LAB:CreateButton(1, "TestButton7_3", UIParent); _G.T73:SetSize(36, 36); _G.T73:SetPoint("CENTER", 0, 0); _G.T73:Show()
+```
+
+**Enable LibKeyBound**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:EnableKeyBound(_G.T73); print("LibKeyBound enabled: " .. tostring(_G.T73._libKeyBoundEnabled))
+```
+
+**Expected**:
+- Button visible
+- Message shows "LibKeyBound enabled: true"
+- Button has GetBindingAction, GetActionName, GetHotkey, SetKey methods
+
+**Test GetActionName method**:
+```lua
+/run if _G.T73 and _G.T73.GetActionName then print("Action name: " .. _G.T73:GetActionName()) else print("GetActionName not available") end
+```
+
+**Expected**:
+- Message shows action name like "Action Button 1"
+
+**Cleanup**:
+```lua
+/run if _G.T73 then local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:DisableKeyBound(_G.T73); _G.T73:Hide(); _G.T73:SetParent(nil); _G.T73=nil end
+```
+
+---
+
+## Test 7.4: Action UI Registration (Retail Only)
+
+**Note**: The `C_ActionBar.SetActionUIButton` API was removed or never publicly available in modern Retail WoW. This test verifies the graceful fallback behavior.
+
+### Test Action UI registration availability
+
+**Script**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); if LAB.WoWRetail and C_ActionBar and C_ActionBar.SetActionUIButton then print("Action UI registration available") else print("Action UI registration not available (Classic or API missing)") end
+```
+
+**Expected**:
+- Message shows "Action UI registration not available (Classic or API missing)"
+- This is normal - the API is not publicly available in current WoW versions
+
+### Test registering action button (verifies graceful fallback)
+
+**Create button**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); _G.T74 = LAB:CreateButton(1, "TestButton7_4", UIParent); _G.T74:SetSize(36, 36); _G.T74:SetPoint("CENTER", 0, 0); _G.T74:Show()
+```
+
+**Register with Action UI system**:
+```lua
+/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:RegisterActionUI(_G.T74); print("Action UI registered: " .. tostring(_G.T74._actionUIRegistered))
+```
+
+**Expected**:
+- Button visible and functional
+- Message shows "Action UI registered: nil" (API not available)
+- No errors - RegisterActionUI gracefully returns when API missing
+- Button works normally even without registration
+
+**Cleanup**:
+```lua
+/run if _G.T74 then local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:UnregisterActionUI(_G.T74); _G.T74:Hide(); _G.T74:SetParent(nil); _G.T74=nil end
+```
+
+---
+
 ## Troubleshooting
 
 If any test fails:

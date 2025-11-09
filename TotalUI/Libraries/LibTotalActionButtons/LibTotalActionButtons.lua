@@ -890,6 +890,9 @@ function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
         self:UpdateButton(button)
     end
 
+    -- Fire OnButtonCreated callback (Phase 7)
+    self:FireCallback("OnButtonCreated", button)
+
     return button
 end
 
@@ -926,6 +929,13 @@ function LAB:InitializeButton(button)
 
     -- Set up scripts
     self:SetupButtonScripts(button)
+
+    -- Override the ActionBarButtonTemplate's SetTooltip method to prevent it from
+    -- trying to use button.action for non-ACTION button types
+    button.SetTooltip = function(self)
+        -- Use our type-aware tooltip logic instead of Blizzard's
+        LAB:OnButtonEnter(self)
+    end
 end
 
 function LAB:SetupButtonAction(button, actionID)
@@ -1397,6 +1407,9 @@ function LAB:UpdateState(button, newState)
 
     -- Update button display for new state
     self:UpdateButtonState(button)
+
+    -- Fire OnButtonStateChanged callback (Phase 7)
+    self:FireCallback("OnButtonStateChanged", button, newState, oldState)
 end
 
 --- Internal: Update button display based on current state
@@ -1411,35 +1424,71 @@ function LAB:UpdateButtonState(button)
     self:DebugPrint(string.format("UpdateButtonState: button=%s, state=%s, type=%s, action=%s",
         button:GetName() or "unnamed", state, tostring(buttonType), tostring(action)))
 
+    -- Clear ALL type-specific properties first
+    -- IMPORTANT: We can't set button.action to nil because Blizzard's ActionBarButtonTemplate
+    -- code (in ActionButton.lua) will try to call C_TooltipInfo.GetAction(nil) which errors.
+    -- Instead, we set it to 0 which is an invalid action slot that won't error.
+    button.action = 0  -- Invalid action slot (safe for Blizzard's code)
+    button.spellID = nil
+    button.itemID = nil
+    button.macroID = nil
+
+    -- Clear old secure attributes to prevent interference
+    button:SetAttribute("action", nil)
+    button:SetAttribute("spell", nil)
+    button:SetAttribute("item", nil)
+    button:SetAttribute("macro", nil)
+
+    self:DebugPrint(string.format("  After clear: action=%s spellID=%s", tostring(button.action), tostring(button.spellID)))
+
     -- Update button type and action
     button.buttonType = buttonType or LAB.ButtonType.EMPTY
     button.buttonAction = action
 
-    -- Update secure attributes for click handling
+    self:DebugPrint(string.format("  Set buttonAction=%s", tostring(button.buttonAction)))
+
+    -- Update secure attributes for click handling and set type-specific properties
     if buttonType == LAB.ButtonType.ACTION then
         button:SetAttribute("type", "action")
         button:SetAttribute("action", action)
+        button.action = action  -- ONLY set action property for ACTION type
         button.UpdateFunctions = LAB.ActionTypeUpdateFunctions
+        self:DebugPrint(string.format("  Set ACTION: action=%s", tostring(button.action)))
     elseif buttonType == LAB.ButtonType.SPELL then
         button:SetAttribute("type", "spell")
         button:SetAttribute("spell", action)
+        button.spellID = action  -- ONLY set spellID property for SPELL type
+        -- Keep button.action = 0 (invalid) to prevent Blizzard's code from using it
         button.UpdateFunctions = LAB.SpellTypeUpdateFunctions
+        self:DebugPrint(string.format("  Set SPELL: spellID=%s action=%s", tostring(button.spellID), tostring(button.action)))
     elseif buttonType == LAB.ButtonType.ITEM then
         button:SetAttribute("type", "item")
         button:SetAttribute("item", "item:" .. tostring(action))
+        button.itemID = action  -- ONLY set itemID property for ITEM type
+        -- Keep button.action = 0 (invalid) to prevent Blizzard's code from using it
         button.UpdateFunctions = LAB.ItemTypeUpdateFunctions
+        self:DebugPrint(string.format("  Set ITEM: itemID=%s action=%s", tostring(button.itemID), tostring(button.action)))
     elseif buttonType == LAB.ButtonType.MACRO then
         button:SetAttribute("type", "macro")
         button:SetAttribute("macro", action)
+        button.macroID = action  -- ONLY set macroID property for MACRO type
+        -- Keep button.action = 0 (invalid) to prevent Blizzard's code from using it
         button.UpdateFunctions = LAB.MacroTypeUpdateFunctions
+        self:DebugPrint(string.format("  Set MACRO: macroID=%s action=%s", tostring(button.macroID), tostring(button.action)))
     else
         -- Empty or unknown type
         button:SetAttribute("type", nil)
         button.UpdateFunctions = {}
+        self:DebugPrint(string.format("  Set EMPTY"))
     end
+
+    self:DebugPrint(string.format("  After if-else: action=%s spellID=%s", tostring(button.action), tostring(button.spellID)))
+    self:DebugPrint(string.format("  Before UpdateButton: action=%s spellID=%s", tostring(button.action), tostring(button.spellID)))
 
     -- Update all visual elements for the new action
     self:UpdateButton(button)
+
+    self:DebugPrint(string.format("  After UpdateButton: action=%s spellID=%s", tostring(button.action), tostring(button.spellID)))
 end
 
 --- Get the action for a specific state (or current state)
@@ -1462,9 +1511,11 @@ function LAB:GetAction(button, state)
         stateAction = button.stateActions and button.stateActions["0"]
     end
 
+    local finalType = stateType or button.buttonType or LAB.ButtonType.EMPTY
+    local finalAction = stateAction or button.buttonAction
+
     -- Final fallback to button's base type/action
-    return stateType or button.buttonType or LAB.ButtonType.EMPTY,
-           stateAction or button.buttonAction
+    return finalType, finalAction
 end
 
 --- Clear all states for a button
@@ -1590,6 +1641,9 @@ function LAB:UpdateButton(button)
     self:UpdateRange(button)
     self:UpdateVisualState(button)
     self:UpdateGrid(button)
+
+    -- Fire OnButtonUpdate callback (Phase 7)
+    self:FireCallback("OnButtonUpdate", button)
 end
 
 function LAB:UpdateAction(button)
@@ -1603,7 +1657,28 @@ function LAB:UpdateAction(button)
     else
         hasAction = HasAction(action)
     end
+
+    -- Track action identity for content change detection (Phase 7)
+    local actionType, actionID
+    if hasAction then
+        actionType, actionID = GetActionInfo(action)
+    end
+
+    local previousHasAction = button._state.hasAction
+    local previousActionType = button._state.actionType
+    local previousActionID = button._state.actionID
+
     button._state.hasAction = hasAction
+    button._state.actionType = actionType
+    button._state.actionID = actionID
+
+    -- Fire callback if contents changed (empty<->filled OR different action)
+    local contentsChanged = (previousHasAction ~= hasAction) or
+                           (hasAction and (previousActionType ~= actionType or previousActionID ~= actionID))
+
+    if contentsChanged then
+        self:FireCallback("OnButtonContentsChanged", button)
+    end
 
     if hasAction then
         -- Action exists: ensure normal texture uses default appearance
@@ -2288,25 +2363,60 @@ function LAB:OnButtonEvent(button, event, ...)
 end
 
 function LAB:OnButtonEnter(button)
-    if not button.action then return end
+    -- Debug: show what we're seeing
+    if self.debug then
+        print(string.format("OnButtonEnter: type=%s action=%s spellID=%s itemID=%s macroID=%s",
+            tostring(button.buttonType), tostring(button.action), tostring(button.spellID),
+            tostring(button.itemID), tostring(button.macroID)))
+    end
 
-    -- Show tooltip
+    -- Show tooltip based on button type
     if GetCVarBool("UberTooltips") then
         GameTooltip_SetDefaultAnchor(GameTooltip, button)
     else
         GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
     end
 
-    if GameTooltip:SetAction(button.action) then
+    local hasTooltip = false
+
+    -- Set tooltip based on button type using type-specific properties
+    if button.buttonType == LAB.ButtonType.ACTION and button.action then
+        if self.debug then print(string.format("  -> Using ACTION tooltip with action=%s", tostring(button.action))) end
+        hasTooltip = GameTooltip:SetAction(button.action)
+        if self.debug then print(string.format("  -> SetAction returned: %s", tostring(hasTooltip))) end
+    elseif button.buttonType == LAB.ButtonType.SPELL and button.spellID then
+        if self.debug then print(string.format("  -> Using SPELL tooltip with spellID=%s", tostring(button.spellID))) end
+        if self.debug then print(string.format("  -> GameTooltip owner before: %s", tostring(GameTooltip:GetOwner() and GameTooltip:GetOwner():GetName() or "nil"))) end
+        hasTooltip = GameTooltip:SetSpellByID(button.spellID)
+        if self.debug then print(string.format("  -> SetSpellByID returned: %s", tostring(hasTooltip))) end
+        if self.debug then print(string.format("  -> GameTooltip owner after: %s", tostring(GameTooltip:GetOwner() and GameTooltip:GetOwner():GetName() or "nil"))) end
+        if self.debug then print(string.format("  -> GameTooltip text: %s", tostring(_G["GameTooltipTextLeft1"] and _G["GameTooltipTextLeft1"]:GetText() or "nil"))) end
+    elseif button.buttonType == LAB.ButtonType.ITEM and button.itemID then
+        if self.debug then print(string.format("  -> Using ITEM tooltip with itemID=%s", tostring(button.itemID))) end
+        hasTooltip = GameTooltip:SetItemByID(button.itemID)
+        if self.debug then print(string.format("  -> SetItemByID returned: %s", tostring(hasTooltip))) end
+    elseif button.buttonType == LAB.ButtonType.MACRO and button.macroID then
+        if self.debug then print(string.format("  -> Using MACRO tooltip with macroID=%s", tostring(button.macroID))) end
+        hasTooltip = GameTooltip:SetAction(button.macroID)
+        if self.debug then print(string.format("  -> SetAction returned: %s", tostring(hasTooltip))) end
+    end
+
+    if hasTooltip then
         button.UpdateTooltip = function() LAB:OnButtonEnter(button) end
     else
         button.UpdateTooltip = nil
     end
+
+    -- Fire OnButtonEnter callback (Phase 7)
+    self:FireCallback("OnButtonEnter", button)
 end
 
 function LAB:OnButtonLeave(button)
     GameTooltip:Hide()
     button.UpdateTooltip = nil
+
+    -- Fire OnButtonLeave callback (Phase 7)
+    self:FireCallback("OnButtonLeave", button)
 end
 
 -----------------------------------
@@ -3063,6 +3173,240 @@ function LAB:SetTextPosition(button, element, anchor, relAnchor, offsetX, offset
     if textElement then
         textElement:ClearAllPoints()
         textElement:SetPoint(anchor, button, relAnchor, offsetX, offsetY)
+    end
+end
+
+-----------------------------------
+-- PHASE 7: INTEGRATION & EXTENSIBILITY
+-----------------------------------
+
+-----------------------------------
+-- STEP 7.1: CALLBACKHANDLER INTEGRATION
+-----------------------------------
+
+-- Try to load CallbackHandler-1.0
+local CBH = LibStub and LibStub("CallbackHandler-1.0", true)
+
+if CBH then
+    -- Initialize callbacks if CallbackHandler is available
+    -- This creates RegisterCallback, UnregisterCallback, and UnregisterAllCallbacks methods on LAB
+    LAB.callbacks = LAB.callbacks or CBH:New(LAB)
+
+    --- Fire a callback event
+    -- @param event The event name
+    -- @param ... Event arguments
+    function LAB:FireCallback(event, ...)
+        if self.callbacks then
+            self.callbacks:Fire(event, ...)
+        end
+    end
+else
+    -- Fallback if CallbackHandler is not available
+    function LAB:FireCallback(event, ...)
+        -- No-op if no callback handler
+    end
+
+    -- Create stub methods if CallbackHandler not available
+    function LAB:RegisterCallback(event, callback, arg)
+        -- No-op
+    end
+
+    function LAB:UnregisterCallback(event, callback)
+        -- No-op
+    end
+end
+
+-----------------------------------
+-- STEP 7.2: MASQUE SUPPORT
+-----------------------------------
+
+-- Try to load Masque (or ButtonFacade for legacy support)
+local MSQ = LibStub and (LibStub("Masque", true) or LibStub("ButtonFacade", true))
+
+LAB.MasqueGroup = nil
+
+--- Initialize Masque support
+function LAB:InitializeMasque()
+    if not MSQ then return end
+
+    -- Create a Masque group for LibTotalActionButtons
+    if not self.MasqueGroup then
+        self.MasqueGroup = MSQ:Group("LibTotalActionButtons")
+    end
+end
+
+--- Add button to Masque skinning
+-- @param button The button to skin
+function LAB:AddToMasque(button)
+    if not MSQ or not button then return end
+
+    -- Initialize Masque if needed
+    self:InitializeMasque()
+
+    if not self.MasqueGroup then return end
+
+    -- Create button data structure for Masque
+    local buttonData = {
+        Icon = button._icon,
+        Cooldown = button._cooldown,
+        Count = button._count,
+        HotKey = button._hotkey,
+        Name = button._name,
+        Flash = button._flash,
+        Border = button._border,
+        Normal = button:GetNormalTexture(),
+        Pushed = button:GetPushedTexture(),
+        Highlight = button:GetHighlightTexture(),
+        Checked = button:GetCheckedTexture(),
+    }
+
+    -- Add to Masque group
+    self.MasqueGroup:AddButton(button, buttonData)
+
+    -- Mark button as Masque-skinned
+    button._masqueSkinned = true
+end
+
+--- Remove button from Masque skinning
+-- @param button The button to unskin
+function LAB:RemoveFromMasque(button)
+    if not MSQ or not button or not self.MasqueGroup then return end
+
+    self.MasqueGroup:RemoveButton(button)
+    button._masqueSkinned = false
+end
+
+--- Update Masque skin for a button
+-- @param button The button to update
+function LAB:UpdateMasqueSkin(button)
+    if not button or not button._masqueSkinned then return end
+
+    -- Re-add to refresh skin
+    self:AddToMasque(button)
+end
+
+-----------------------------------
+-- STEP 7.3: LIBKEYBOUND INTEGRATION
+-----------------------------------
+
+--- Enable LibKeyBound support for a button
+-- @param button The button to enable keybinding for
+function LAB:EnableKeyBound(button)
+    if not button then return end
+
+    -- Try to load LibKeyBound (it might be Load on Demand)
+    local LKB = LibStub and LibStub("LibKeyBound-1.0", true)
+    if not LKB then return end
+
+    -- Set up LibKeyBound methods on button
+    button.GetBindingAction = function(self)
+        return self.buttonType
+    end
+
+    button.GetActionName = function(self)
+        local actionType = self.buttonType
+
+        if actionType == "action" then
+            return "Action Button " .. (self.action or 0)
+        elseif actionType == "spell" then
+            local spellName = GetSpellInfo(self.spellID or 0)
+            return spellName or "Spell"
+        elseif actionType == "item" then
+            local itemName = GetItemInfo(self.itemID or 0)
+            return itemName or "Item"
+        elseif actionType == "macro" then
+            return GetMacroInfo(self.macroID or 0) or "Macro"
+        elseif actionType == "custom" then
+            return self.customName or "Custom Action"
+        end
+
+        return "Unknown"
+    end
+
+    button.GetHotkey = function(self)
+        return self._hotkey and self._hotkey:GetText() or ""
+    end
+
+    button.SetKey = function(self, key)
+        if not key or key == "" then
+            self._hotkey:SetText("")
+            return
+        end
+
+        -- Set the binding
+        local actionType = self.buttonType
+
+        if actionType == "action" and self.action then
+            SetBinding(key, "ACTIONBUTTON" .. self.action)
+        end
+
+        -- Update hotkey display
+        LAB:UpdateHotkey(self)
+    end
+
+    -- Mark button as LibKeyBound enabled
+    button._libKeyBoundEnabled = true
+end
+
+--- Disable LibKeyBound support for a button
+-- @param button The button to disable keybinding for
+function LAB:DisableKeyBound(button)
+    if not button then return end
+
+    button.GetBindingAction = nil
+    button.GetActionName = nil
+    button.GetHotkey = nil
+    button.SetKey = nil
+
+    button._libKeyBoundEnabled = false
+end
+
+-----------------------------------
+-- STEP 7.4: ACTION UI REGISTRATION (RETAIL)
+-----------------------------------
+
+--- Register action button with Blizzard Action UI system (Retail only)
+-- @param button The button to register
+function LAB:RegisterActionUI(button)
+    if not button or not WoWRetail then return end
+
+    -- Only register action-type buttons
+    if button.buttonType ~= "action" or not button.action then
+        return
+    end
+
+    -- Check if API is available
+    if not C_ActionBar or not C_ActionBar.SetActionUIButton then
+        return
+    end
+
+    -- Register with Blizzard
+    local slot = button.action
+    local cooldown = button._cooldown
+
+    if slot and cooldown then
+        C_ActionBar.SetActionUIButton(slot, button, cooldown)
+        button._actionUIRegistered = true
+    end
+end
+
+--- Unregister action button from Blizzard Action UI system (Retail only)
+-- @param button The button to unregister
+function LAB:UnregisterActionUI(button)
+    if not button or not WoWRetail then return end
+
+    -- Only unregister if it was registered
+    if not button._actionUIRegistered then return end
+
+    -- Check if API is available
+    if not C_ActionBar or not C_ActionBar.ClearActionUIButton then
+        return
+    end
+
+    local slot = button.action
+    if slot then
+        C_ActionBar.ClearActionUIButton(slot)
+        button._actionUIRegistered = false
     end
 end
 
