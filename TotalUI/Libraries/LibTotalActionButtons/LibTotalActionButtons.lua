@@ -936,6 +936,9 @@ function LAB:InitializeButton(button)
         -- Use our type-aware tooltip logic instead of Blizzard's
         LAB:OnButtonEnter(self)
     end
+
+    -- Phase 9: Initialize advanced features
+    self:InitSpellCastAnimFrame(button)
 end
 
 function LAB:SetupButtonAction(button, actionID)
@@ -3675,15 +3678,17 @@ function LAB:ButtonHasContent(button)
 
     local buttonType = button.buttonType
     if buttonType == "action" then
-        return button.buttonAction ~= nil and button.buttonAction > 0
+        -- For action buttons, check if action slot has content
+        if not button.action or button.action == 0 then return false end
+        return HasAction(button.action)
     elseif buttonType == "spell" then
-        return button.buttonAction ~= nil
+        return button.spellID ~= nil
     elseif buttonType == "item" then
-        return button.buttonAction ~= nil
+        return button.itemID ~= nil
     elseif buttonType == "macro" then
-        return button.buttonAction ~= nil
+        return button.macroID ~= nil
     elseif buttonType == "custom" then
-        return button.buttonAction ~= nil
+        return button.customAction ~= nil
     end
 
     return false
@@ -3725,6 +3730,366 @@ function LAB:EnsureOverlay(button)
     -- Overlay is created via ActionBarActionEventsFrame.Update when spell procs
     -- We don't need to create it manually, just track it
     return nil
+end
+
+-----------------------------------
+-- PHASE 9: ADVANCED FEATURES
+-----------------------------------
+
+-----------------------------------
+-- STEP 9.2: GLOBAL GRID SYSTEM
+-----------------------------------
+
+-- Grid counter for tracking show/hide requests
+LAB.gridCounter = 0
+
+--- Show grid on all empty buttons
+-- Increments counter to support multiple callers
+function LAB:ShowGrid()
+    self.gridCounter = self.gridCounter + 1
+
+    self:DebugPrint("ShowGrid called, counter: " .. self.gridCounter)
+
+    -- Update all buttons
+    for _, button in ipairs(self.buttons) do
+        if button._normalTexture then
+            -- Only show grid if button has no action
+            if not self:ButtonHasContent(button) then
+                -- Set the default action button texture
+                button._normalTexture:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+                button._normalTexture:SetVertexColor(1.0, 1.0, 1.0, 1.0)
+                button._normalTexture:SetAlpha(0.5)
+                button._normalTexture:Show()
+            end
+        end
+    end
+end
+
+--- Hide grid on all empty buttons
+-- Decrements counter, only hides when counter reaches 0
+function LAB:HideGrid()
+    if self.gridCounter > 0 then
+        self.gridCounter = self.gridCounter - 1
+    end
+
+    self:DebugPrint("HideGrid called, counter: " .. self.gridCounter)
+
+    -- Only hide if counter is 0 (no more callers need grid)
+    if self.gridCounter == 0 then
+        for _, button in ipairs(self.buttons) do
+            if button._normalTexture and not self:ButtonHasContent(button) then
+                button._normalTexture:SetTexture(nil)
+                button._normalTexture:SetAlpha(0)
+                button._normalTexture:Hide()
+            end
+        end
+    end
+end
+
+--- Force show grid on specific button
+-- @param button The button to show grid on
+-- @param show boolean Whether to show or hide grid
+function LAB:SetShowGrid(button, show)
+    if not button or not button._normalTexture then return end
+
+    button._showGrid = show
+
+    if show then
+        if not self:ButtonHasContent(button) then
+            button._normalTexture:SetVertexColor(1.0, 1.0, 1.0, 0.5)
+            button._normalTexture:Show()
+        end
+    else
+        if not self:ButtonHasContent(button) and self.gridCounter == 0 then
+            button._normalTexture:Hide()
+        end
+    end
+end
+
+-----------------------------------
+-- STEP 9.3: TOOLTIP ENHANCEMENTS
+-----------------------------------
+
+--- Set tooltip mode for button
+-- @param button The button
+-- @param mode string "enabled", "disabled", or "nocombat"
+function LAB:SetTooltipMode(button, mode)
+    if not button then return end
+
+    button._tooltipMode = mode or "enabled"
+
+    self:DebugPrint(string.format("SetTooltipMode: %s -> %s", button:GetName(), mode))
+end
+
+--- Check if tooltip should be shown
+-- @param button The button
+-- @return boolean Whether tooltip should be shown
+function LAB:ShouldShowTooltip(button)
+    if not button then return false end
+
+    local mode = button._tooltipMode or "enabled"
+
+    if mode == "disabled" then
+        return false
+    elseif mode == "nocombat" then
+        return not InCombatLockdown()
+    else
+        return true
+    end
+end
+
+--- Enhanced OnEnter handler for tooltips
+function LAB:OnButtonEnter(button)
+    if not button then return end
+
+    -- Fire callback
+    self:FireCallback("OnButtonEnter", button)
+
+    -- Show tooltip if enabled
+    if self:ShouldShowTooltip(button) then
+        if button.buttonType == "action" and button.action then
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+            GameTooltip:SetAction(button.action)
+            GameTooltip:Show()
+        elseif button.buttonType == "spell" and button.buttonAction then
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+            GameTooltip:SetSpellByID(button.buttonAction)
+            GameTooltip:Show()
+        elseif button.buttonType == "item" and button.buttonAction then
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+            GameTooltip:SetItemByID(button.buttonAction)
+            GameTooltip:Show()
+        elseif button.buttonType == "macro" and button.buttonAction then
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+            local name, _, body = GetMacroInfo(button.buttonAction)
+            if name then
+                GameTooltip:SetText(name, 1, 1, 1)
+                GameTooltip:AddLine(body, nil, nil, nil, true)
+                GameTooltip:Show()
+            end
+        end
+    end
+end
+
+--- Enhanced OnLeave handler for tooltips
+function LAB:OnButtonLeave(button)
+    if not button then return end
+
+    -- Fire callback
+    self:FireCallback("OnButtonLeave", button)
+
+    -- Hide tooltip
+    GameTooltip:Hide()
+end
+
+-----------------------------------
+-- STEP 9.4: SPELL HIGHLIGHT ANIMATIONS (Retail)
+-----------------------------------
+
+
+-----------------------------------
+-- STEP 9.5: SPELL CAST VFX (Retail)
+-----------------------------------
+
+--- Initialize spell cast animation frame for button
+-- @param button The button
+function LAB:InitSpellCastAnimFrame(button)
+    if not button or not self.WoWRetail then return end
+
+    -- SpellCastAnimFrame is part of ActionBarButtonTemplate
+    button._spellCastAnim = button.SpellCastAnimFrame or _G[button:GetName() .. "SpellCastAnimFrame"]
+
+    if button._spellCastAnim then
+        self:DebugPrint("SpellCastAnimFrame found for " .. button:GetName())
+    end
+end
+
+--- Show spell cast animation
+-- @param button The button
+function LAB:ShowSpellCastAnim(button)
+    if not button or not self.WoWRetail or not button._spellCastAnim then return end
+
+    if button._spellCastAnim.Show then
+        button._spellCastAnim:Show()
+        self:DebugPrint("Showing SpellCastAnim for " .. button:GetName())
+    end
+end
+
+--- Hide spell cast animation
+-- @param button The button
+function LAB:HideSpellCastAnim(button)
+    if not button or not self.WoWRetail or not button._spellCastAnim then return end
+
+    if button._spellCastAnim.Hide then
+        button._spellCastAnim:Hide()
+    end
+end
+
+-----------------------------------
+-- STEP 9.1: FLYOUT SYSTEM (Complex)
+-----------------------------------
+
+-- Flyout button pool for reuse
+LAB.flyoutButtons = {}
+LAB.flyoutButtonPool = {}
+
+--- Create a flyout button
+-- @param parent The parent button
+-- @param index The index in the flyout
+-- @return button The flyout button
+function LAB:CreateFlyoutButton(parent, index)
+    local name = parent:GetName() .. "Flyout" .. index
+
+    -- Always create a new button with the correct name (frames can't be renamed)
+    local button = CreateFrame("CheckButton", name, UIParent, "ActionBarButtonTemplate, SecureActionButtonTemplate")
+
+    if not button then
+        self:Error("CreateFlyoutButton: Failed to create flyout button!", 2)
+        return nil
+    end
+
+    -- Initialize button elements
+    self:InitializeButton(button)
+    self:StyleButton(button)  -- Create _colors and apply default styling
+
+    -- Store reference
+    button._flyoutParent = parent
+    button._flyoutIndex = index
+    button.buttonType = LAB.ButtonType.ACTION
+
+    return button
+end
+
+--- Release flyout button (hide and clean up)
+-- @param button The flyout button to release
+function LAB:ReleaseFlyoutButton(button)
+    if not button then return end
+
+    button:Hide()
+    button:SetParent(nil)
+    button:ClearAllPoints()
+    button._flyoutParent = nil
+    button._flyoutIndex = nil
+
+    -- Note: We no longer pool buttons since frames can't be renamed
+    -- The button will be garbage collected when no longer referenced
+end
+
+--- Get flyout info for action
+-- @param actionID The action ID
+-- @return boolean, numSlots, direction Whether action is flyout, number of slots, direction
+function LAB:GetFlyoutInfo(actionID)
+    if not actionID or actionID == 0 then return false, 0, nil end
+
+    -- Check if action is a flyout
+    local actionType, id = GetActionInfo(actionID)
+
+    if actionType == "flyout" then
+        local name, description, numSlots, isKnown = GetFlyoutInfo(id)
+        local direction = "UP" -- Default direction
+
+        return true, numSlots, direction
+    end
+
+    return false, 0, nil
+end
+
+--- Show flyout for button
+-- @param button The button
+function LAB:ShowFlyout(button)
+    if not button or not button.buttonType == "action" or not button.action then return end
+
+    local isFlyout, numSlots, direction = self:GetFlyoutInfo(button.action)
+
+    if not isFlyout or numSlots == 0 then return end
+
+    self:DebugPrint(string.format("ShowFlyout: %s slots=%d dir=%s", button:GetName(), numSlots, direction))
+
+    -- Hide any existing flyout
+    self:HideFlyout(button)
+
+    -- Create flyout buttons
+    local flyoutButtons = {}
+
+    for i = 1, numSlots do
+        local flyoutButton = self:CreateFlyoutButton(button, i)
+
+        if flyoutButton then
+            -- Get the flyout ID from the action
+            local actionType, flyoutID = GetActionInfo(button.action)
+
+            if actionType == "flyout" and flyoutID then
+                -- Get flyout slot info - note this uses flyoutID, not action ID
+                local spellID, overrideSpellID, isKnown, spellName, slotSpecID = GetFlyoutSlotInfo(flyoutID, i)
+
+                if spellID and isKnown then
+                    -- Set up flyout button as a spell button
+                    flyoutButton.buttonType = LAB.ButtonType.SPELL
+                    flyoutButton.buttonAction = spellID
+                    flyoutButton.UpdateFunctions = LAB.SpellTypeUpdateFunctions
+                    flyoutButton.action = nil  -- Clear action slot reference
+                    flyoutButton:SetAttribute("type", "spell")
+                    flyoutButton:SetAttribute("spell", spellID)
+
+                    -- Position flyout button
+                    self:PositionFlyoutButton(button, flyoutButton, i, numSlots, direction)
+
+                    -- Update and show
+                    self:UpdateButton(flyoutButton)
+                    flyoutButton:Show()
+
+                    table.insert(flyoutButtons, flyoutButton)
+                else
+                    -- Slot doesn't exist or spell not known - release button back to pool
+                    self:ReleaseFlyoutButton(flyoutButton)
+                end
+            else
+                -- Not a flyout - release button
+                self:ReleaseFlyoutButton(flyoutButton)
+            end
+        end
+    end
+
+    -- Store flyout buttons on parent
+    button._flyoutButtons = flyoutButtons
+end
+
+--- Hide flyout for button
+-- @param button The button
+function LAB:HideFlyout(button)
+    if not button or not button._flyoutButtons then return end
+
+    for _, flyoutButton in ipairs(button._flyoutButtons) do
+        self:ReleaseFlyoutButton(flyoutButton)
+    end
+
+    button._flyoutButtons = nil
+end
+
+--- Position flyout button relative to parent
+-- @param parent The parent button
+-- @param flyoutButton The flyout button
+-- @param index The flyout index
+-- @param numSlots Total number of flyout slots
+-- @param direction The flyout direction (UP/DOWN/LEFT/RIGHT)
+function LAB:PositionFlyoutButton(parent, flyoutButton, index, numSlots, direction)
+    if not parent or not flyoutButton then return end
+
+    local size = parent:GetWidth()
+    local spacing = 2
+    direction = direction or "UP"
+
+    flyoutButton:SetSize(size, size)
+
+    if direction == "UP" then
+        flyoutButton:SetPoint("BOTTOM", parent, "TOP", 0, (index - 1) * (size + spacing))
+    elseif direction == "DOWN" then
+        flyoutButton:SetPoint("TOP", parent, "BOTTOM", 0, -(index - 1) * (size + spacing))
+    elseif direction == "LEFT" then
+        flyoutButton:SetPoint("RIGHT", parent, "LEFT", -(index - 1) * (size + spacing), 0)
+    elseif direction == "RIGHT" then
+        flyoutButton:SetPoint("LEFT", parent, "RIGHT", (index - 1) * (size + spacing), 0)
+    end
 end
 
 -----------------------------------

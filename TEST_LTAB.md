@@ -278,40 +278,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 ---
 
-## Expected Results Summary
 
-### Phase 1
-✅ LibStub registration works
-✅ Version detection correct
-✅ API wrappers present
-✅ Parameter validation produces clear errors
-✅ Buttons create successfully
-✅ All button elements present
-
-### Phase 2
-✅ All button types available
-✅ Action, Spell, Item, Macro buttons functional
-✅ Custom buttons accept UpdateFunctions
-✅ All buttons have correct buttonType
-✅ Buttons clickable and functional
-
-### Phase 3
-✅ States set and queried correctly
-✅ Button switches between states
-✅ State fallback works
-✅ Clear states resets button
-✅ Paging support functional
-✅ Mixed button types work
-✅ Click behavior changes with state
-
-### Phase 4 (Retail features may not apply to Classic)
-✅ Charge cooldowns display separately
-✅ Proc glows show/hide correctly
-✅ New action highlights appear
-✅ Equipped items show green border
-✅ LoC cooldowns show red swipe
-
----
 
 ## Phase 4: Visual Enhancements
 
@@ -1387,6 +1354,142 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 **Cleanup**:
 ```lua
 /run local L=LibStub("LibTotalActionButtons-1.0");L:SetDebug(false);_G.T88:Hide();_G.T88:SetParent(nil);_G.T88=nil
+```
+
+---
+
+# Phase 9: Advanced Features Tests
+
+## Test 9.1: Flyout System
+
+**Note**: Requires a flyout action on your action bars (e.g., Mount/Pet abilities that have flyouts)
+
+**Check if action is flyout** (using action slot 9 where you placed Teleport flyout):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local a=9;local isFlyout,numSlots,dir=L:GetFlyoutInfo(a);print("Flyout:",isFlyout,"Slots:",numSlots,"Dir:",dir)
+```
+**Expected**: "Flyout: true Slots: [number] Dir: UP" (or DOWN/LEFT/RIGHT depending on flyout)
+
+**Create button with flyout action** (using action slot 9 for Teleport flyout):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T91=L:CreateActionButton(9,"T91",UIParent);_G.T91:SetPoint("CENTER");L:SetButtonSize(_G.T91,50,50);_G.T91:Show()
+```
+
+**Show flyout**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:ShowFlyout(_G.T91);print("Flyout shown")
+```
+**Expected**: If action is flyout, flyout buttons appear above parent
+
+**Hide flyout**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:HideFlyout(_G.T91);print("Flyout hidden")
+```
+**Expected**: Flyout buttons disappear
+
+**Cleanup**:
+```lua
+/run if _G.T91 then local L=LibStub("LibTotalActionButtons-1.0");L:HideFlyout(_G.T91);_G.T91:Hide();_G.T91:SetParent(nil);_G.T91=nil end
+```
+
+## Test 9.2: Global Grid System
+
+**Create empty buttons** (using very high unused action slots):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");for i=1,5 do local b=L:CreateActionButton(500+i,"T92_"..i,UIParent);b:SetPoint("CENTER",(i-3)*55,100);L:SetButtonSize(b,50,50);b:Show()end
+```
+**Expected**: 5 empty buttons appear (no grid visible yet - just empty button backgrounds)
+
+**Show global grid**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:ShowGrid();print("Grid shown, counter:",L.gridCounter)
+```
+**Expected**: All empty buttons show grid border, counter = 1
+
+**Show grid again** (test counter):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:ShowGrid();print("Grid shown again, counter:",L.gridCounter)
+```
+**Expected**: Counter = 2
+
+**Hide grid once**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:HideGrid();print("Grid hidden once, counter:",L.gridCounter)
+```
+**Expected**: Grid still visible, counter = 1
+
+**Hide grid final**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:HideGrid();print("Grid hidden final, counter:",L.gridCounter)
+```
+**Expected**: Grid disappears, counter = 0
+
+**Cleanup**:
+```lua
+/run for i=1,5 do local b=_G["T92_"..i];if b then b:Hide();b:SetParent(nil);_G["T92_"..i]=nil end end;print("Cleaned")
+```
+
+## Test 9.3: Tooltip Enhancements
+
+**Create spell button**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T93=L:CreateSpellButton(116,"T93",UIParent);_G.T93:SetPoint("CENTER");L:SetButtonSize(_G.T93,50,50);_G.T93:Show()
+```
+
+**Test normal tooltip** (hover mouse over button):
+**Expected**: Tooltip shows spell info
+
+**Disable tooltips**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:SetTooltipMode(_G.T93,"disabled");print("Tooltips disabled")
+```
+**Expected**: Hovering shows no tooltip
+
+**Enable nocombat mode**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:SetTooltipMode(_G.T93,"nocombat");print("Tooltips nocombat")
+```
+**Expected**: Tooltip shows when not in combat, hides in combat
+
+**Re-enable tooltips**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:SetTooltipMode(_G.T93,"enabled");print("Tooltips enabled")
+```
+**Expected**: Tooltips work normally
+
+**Cleanup**:
+```lua
+/run if _G.T93 then _G.T93:Hide();_G.T93:SetParent(nil);_G.T93=nil end
+```
+
+## Test 9.4: Spell Cast VFX (Retail Only)
+
+**Create button**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T95=L:CreateSpellButton(116,"T95",UIParent);_G.T95:SetPoint("CENTER");L:SetButtonSize(_G.T95,50,50);_G.T95:Show()
+```
+
+**Check if cast anim exists**:
+```lua
+/run print("SpellCastAnim:",_G.T95._spellCastAnim and "YES" or "NO")
+```
+**Expected (Retail)**: "YES" | **Expected (Classic)**: "NO"
+
+**Show cast animation** (Retail only):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:ShowSpellCastAnim(_G.T95);print("Cast anim shown")
+```
+**Expected (Retail)**: Cast animation visible on button
+
+**Hide cast animation**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:HideSpellCastAnim(_G.T95);print("Cast anim hidden")
+```
+**Expected**: Animation hides
+
+**Cleanup**:
+```lua
+/run if _G.T95 then _G.T95:Hide();_G.T95:SetParent(nil);_G.T95=nil end
 ```
 
 ---
