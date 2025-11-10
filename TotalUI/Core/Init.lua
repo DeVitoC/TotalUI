@@ -42,6 +42,10 @@ E.mylevel = UnitLevel("player")
 -- Client information
 E.wowpatch, E.wowbuild, E.wowdate, E.wowtoc = GetBuildInfo()
 
+-- Hidden frame for hiding Blizzard UI elements
+E.HiddenFrame = CreateFrame("Frame")
+E.HiddenFrame:Hide()
+
 -- Initialization flag
 E.initialized = false
 
@@ -126,6 +130,8 @@ function E:Print(...)
 end
 
 -- Check if addon already loaded (in case ADDON_LOADED fired before we registered)
-if IsAddOnLoaded(AddonName) then
+-- Use C_AddOns API for Retail, fallback to global for Classic
+local IsAddOnLoadedFunc = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+if IsAddOnLoadedFunc and IsAddOnLoadedFunc(AddonName) then
     E:Initialize()
 end

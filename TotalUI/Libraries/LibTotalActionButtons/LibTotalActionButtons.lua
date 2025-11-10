@@ -1013,6 +1013,17 @@ end
 -- TYPE-SPECIFIC BUTTON CREATION (Phase 2 Steps 2.3-2.6)
 -----------------------------------
 
+--- Create an action button (convenience wrapper for CreateButton)
+-- @param actionID number The action slot ID (1-120)
+-- @param name string Unique name for the button
+-- @param parent frame Parent frame (defaults to UIParent)
+-- @param config table Optional configuration table
+-- @return button The created button frame or nil on error
+function LAB:CreateActionButton(actionID, name, parent, config)
+    -- CreateButton already creates action buttons by default
+    return self:CreateButton(actionID, name, parent, config)
+end
+
 function LAB:CreateSpellButton(spellID, name, parent, config)
     if not LAB.Validate.Number(spellID, "spellID", "CreateSpellButton", 1) then
         return nil
@@ -1043,6 +1054,9 @@ function LAB:CreateSpellButton(spellID, name, parent, config)
     -- Initial update
     self:UpdateButton(button)
 
+    -- Track as active button (Phase 8 optimization)
+    self:TrackActiveButton(button)
+
     return button
 end
 
@@ -1065,6 +1079,10 @@ function LAB:CreateItemButton(itemID, name, parent, config)
     button:SetAttribute("item", itemID)
 
     self:UpdateButton(button)
+
+    -- Track as active button (Phase 8 optimization)
+    self:TrackActiveButton(button)
+
     return button
 end
 
@@ -1087,6 +1105,10 @@ function LAB:CreateMacroButton(macroID, name, parent, config)
     button:SetAttribute("macro", macroID)
 
     self:UpdateButton(button)
+
+    -- Track as active button (Phase 8 optimization)
+    self:TrackActiveButton(button)
+
     return button
 end
 
@@ -1114,6 +1136,10 @@ function LAB:CreateCustomButton(id, name, parent, config, updateFunctions)
     -- No automatic attribute setting
 
     self:UpdateButton(button)
+
+    -- Track as active button (Phase 8 optimization)
+    self:TrackActiveButton(button)
+
     return button
 end
 
@@ -2668,6 +2694,9 @@ function LAB:ClearButton(button)
         button:SetAttribute("type", nil)
         self:UpdateButton(button)
     end
+
+    -- Remove from active tracking (Phase 8 optimization)
+    self:UntrackActiveButton(button)
 end
 
 -----------------------------------
@@ -3408,6 +3437,294 @@ function LAB:UnregisterActionUI(button)
         C_ActionBar.ClearActionUIButton(slot)
         button._actionUIRegistered = false
     end
+end
+
+-----------------------------------
+-- PHASE 8: PERFORMANCE OPTIMIZATION
+-----------------------------------
+
+-----------------------------------
+-- STEP 8.1: CENTRALIZED EVENT HANDLING
+-----------------------------------
+
+-- Global event frame for all buttons (reduces per-button overhead)
+local EventFrame = CreateFrame("Frame")
+LAB.EventFrame = EventFrame
+
+-- Table to track which events need which updates
+local EventHandlers = {
+    -- Action bar events
+    ACTIONBAR_SLOT_CHANGED = function(self, slot)
+        for _, button in ipairs(LAB.activeButtons) do
+            if button.buttonType == "action" and button.action == slot then
+                LAB:UpdateButton(button)
+            end
+        end
+    end,
+
+    ACTIONBAR_UPDATE_COOLDOWN = function(self)
+        for _, button in ipairs(LAB.activeButtons) do
+            if button.buttonType == "action" then
+                LAB:UpdateCooldown(button)
+            end
+        end
+    end,
+
+    ACTIONBAR_UPDATE_USABLE = function(self)
+        for _, button in ipairs(LAB.activeButtons) do
+            LAB:UpdateUsable(button)
+        end
+    end,
+
+    -- Spell events
+    SPELL_UPDATE_COOLDOWN = function(self)
+        for _, button in ipairs(LAB.activeButtons) do
+            if button.buttonType == "spell" then
+                LAB:UpdateCooldown(button)
+            end
+        end
+    end,
+
+    SPELL_UPDATE_CHARGES = function(self)
+        for _, button in ipairs(LAB.activeButtons) do
+            if button.buttonType == "spell" and button.spellID then
+                LAB:UpdateCharges(button)
+            end
+        end
+    end,
+
+    SPELL_UPDATE_USABLE = function(self)
+        for _, button in ipairs(LAB.activeButtons) do
+            if button.buttonType == "spell" then
+                LAB:UpdateUsable(button)
+            end
+        end
+    end,
+
+    -- Item events
+    BAG_UPDATE_COOLDOWN = function(self)
+        for _, button in ipairs(LAB.activeButtons) do
+            if button.buttonType == "item" then
+                LAB:UpdateCooldown(button)
+            end
+        end
+    end,
+
+    ITEM_LOCK_CHANGED = function(self, bag, slot)
+        for _, button in ipairs(LAB.activeButtons) do
+            if button.buttonType == "item" then
+                LAB:UpdateButton(button)
+            end
+        end
+    end,
+
+    -- Unit events
+    UNIT_INVENTORY_CHANGED = function(self, unit)
+        if unit == "player" then
+            for _, button in ipairs(LAB.activeButtons) do
+                if button.buttonType == "item" then
+                    LAB:UpdateEquipped(button)
+                end
+            end
+        end
+    end,
+
+    -- Player events
+    PLAYER_TARGET_CHANGED = function(self)
+        -- Range updates are throttled via OnUpdate
+    end,
+
+    PLAYER_ENTERING_WORLD = function(self)
+        for _, button in ipairs(LAB.buttons) do
+            LAB:UpdateButton(button)
+        end
+    end,
+}
+
+EventFrame:SetScript("OnEvent", function(self, event, ...)
+    local handler = EventHandlers[event]
+    if handler then
+        handler(self, ...)
+    end
+end)
+
+-- Register all events
+for event in pairs(EventHandlers) do
+    EventFrame:RegisterEvent(event)
+end
+
+-----------------------------------
+-- STEP 8.2: BATCH UPDATE FUNCTIONS
+-----------------------------------
+
+--- Execute a function for all buttons
+-- @param func Function to execute (receives button as first arg)
+-- @param ... Additional arguments to pass to function
+function LAB:ForAllButtons(func, ...)
+    if type(func) ~= "function" then return end
+
+    for _, button in ipairs(self.buttons) do
+        func(button, ...)
+    end
+end
+
+--- Execute a function for all buttons with a specific spell
+-- @param spellID The spell ID to match
+-- @param func Function to execute (receives button as first arg)
+-- @param ... Additional arguments to pass to function
+function LAB:ForAllButtonsWithSpell(spellID, func, ...)
+    if not spellID or type(func) ~= "function" then return end
+
+    for _, button in ipairs(self.activeButtons) do
+        if button.buttonType == "spell" and button.buttonAction == spellID then
+            func(button, ...)
+        end
+    end
+end
+
+--- Execute a function for all buttons with a specific item
+-- @param itemID The item ID to match
+-- @param func Function to execute (receives button as first arg)
+-- @param ... Additional arguments to pass to function
+function LAB:ForAllButtonsWithItem(itemID, func, ...)
+    if not itemID or type(func) ~= "function" then return end
+
+    for _, button in ipairs(self.activeButtons) do
+        if button.buttonType == "item" and button.buttonAction == itemID then
+            func(button, ...)
+        end
+    end
+end
+
+--- Execute a function for all buttons with a specific action
+-- @param actionID The action slot to match
+-- @param func Function to execute (receives button as first arg)
+-- @param ... Additional arguments to pass to function
+function LAB:ForAllButtonsWithAction(actionID, func, ...)
+    if not actionID or type(func) ~= "function" then return end
+
+    for _, button in ipairs(self.activeButtons) do
+        if button.buttonType == "action" and button.buttonAction == actionID then
+            func(button, ...)
+        end
+    end
+end
+
+-----------------------------------
+-- STEP 8.3: RANGE UPDATE THROTTLING
+-----------------------------------
+
+-- Range update throttle (0.2 seconds)
+local RANGE_UPDATE_INTERVAL = 0.2
+local rangeUpdateTimer = 0
+
+EventFrame:SetScript("OnUpdate", function(self, elapsed)
+    rangeUpdateTimer = rangeUpdateTimer + elapsed
+
+    if rangeUpdateTimer >= RANGE_UPDATE_INTERVAL then
+        rangeUpdateTimer = 0
+
+        -- Update range for all active buttons
+        for _, button in ipairs(LAB.activeButtons) do
+            LAB:UpdateRange(button)
+        end
+    end
+end)
+
+-----------------------------------
+-- STEP 8.4: ACTIVE BUTTON TRACKING
+-----------------------------------
+
+-- Active buttons are already tracked in LAB.activeButtons table (created in Phase 1)
+-- This was initialized at the top of the file
+
+--- Add button to active tracking (called when button gets content)
+-- @param button The button to track as active
+function LAB:TrackActiveButton(button)
+    if not button then return end
+
+    -- Check if already tracked
+    for _, btn in ipairs(self.activeButtons) do
+        if btn == button then
+            return -- Already tracked
+        end
+    end
+
+    -- Add to active buttons
+    table.insert(self.activeButtons, button)
+end
+
+--- Remove button from active tracking (called when button is cleared)
+-- @param button The button to remove from active tracking
+function LAB:UntrackActiveButton(button)
+    if not button then return end
+
+    for i, btn in ipairs(self.activeButtons) do
+        if btn == button then
+            table.remove(self.activeButtons, i)
+            return
+        end
+    end
+end
+
+--- Check if button has content (action, spell, item, macro, or custom)
+-- @param button The button to check
+-- @return boolean True if button has content
+function LAB:ButtonHasContent(button)
+    if not button then return false end
+
+    local buttonType = button.buttonType
+    if buttonType == "action" then
+        return button.buttonAction ~= nil and button.buttonAction > 0
+    elseif buttonType == "spell" then
+        return button.buttonAction ~= nil
+    elseif buttonType == "item" then
+        return button.buttonAction ~= nil
+    elseif buttonType == "macro" then
+        return button.buttonAction ~= nil
+    elseif buttonType == "custom" then
+        return button.buttonAction ~= nil
+    end
+
+    return false
+end
+
+-----------------------------------
+-- STEP 8.5: LAZY INITIALIZATION
+-----------------------------------
+
+--- Lazily create charge cooldown frame when needed
+-- @param button The button to create charge cooldown for
+function LAB:EnsureChargeCooldown(button)
+    if not button then return nil end
+    if button.chargeCooldown then return button.chargeCooldown end
+
+    -- Only create if WoW Retail
+    if not self.WoWRetail then return nil end
+
+    -- Create charge cooldown frame
+    local chargeCooldown = CreateFrame("Cooldown", button:GetName() .. "ChargeCooldown", button, "CooldownFrameTemplate")
+    chargeCooldown:SetAllPoints(button._icon)
+    chargeCooldown:SetDrawEdge(true)
+    chargeCooldown:SetDrawSwipe(true)
+    chargeCooldown:SetHideCountdownNumbers(false)
+
+    button.chargeCooldown = chargeCooldown
+    return chargeCooldown
+end
+
+--- Lazily create overlay glow when needed
+-- @param button The button to create overlay for
+function LAB:EnsureOverlay(button)
+    if not button then return nil end
+    if button._overlay then return button._overlay end
+
+    -- Only create if WoW Retail
+    if not self.WoWRetail then return nil end
+
+    -- Overlay is created via ActionBarActionEventsFrame.Update when spell procs
+    -- We don't need to create it manually, just track it
+    return nil
 end
 
 -----------------------------------

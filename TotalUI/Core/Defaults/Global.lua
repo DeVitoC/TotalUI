@@ -86,4 +86,4 @@ E.GlobalDefaults = {
 
 -- Apply defaults on load
 -- TODO: This will be integrated with AceDB later
-E.global = E:CopyTable(E.GlobalDefaults, E.global)
+E.global = CopyTable(E.GlobalDefaults, E.global)

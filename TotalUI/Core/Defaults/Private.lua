@@ -93,4 +93,4 @@ E.PrivateDefaults = {
 
 -- Apply defaults on load
 -- TODO: This will be integrated with AceDB later
-E.private = E:CopyTable(E.PrivateDefaults, E.private)
+E.private = CopyTable(E.PrivateDefaults, E.private)

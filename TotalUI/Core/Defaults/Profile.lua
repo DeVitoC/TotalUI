@@ -47,40 +47,228 @@ E.ProfileDefaults = {
         lockActionBars = false,
         globalFadeAlpha = 1,
         transparentBackdrops = false,
-        desaturateOnCooldown = false,
+        desaturateOnCooldown = true,
         flashAnimation = true,
+        equippedItem = true,
+        equippedItemColor = {r = 0.1, g = 0.6, b = 0.1},
 
-        -- Individual bars (Bar 1-15)
+        -- Colors
+        noRangeColor = {r = 0.8, g = 0.1, b = 0.1},
+        noPowerColor = {r = 0.1, g = 0.3, b = 0.8},
+        notUsableColor = {r = 0.4, g = 0.4, b = 0.4},
+
+        -- Cooldown settings
+        colorSwipeNormal = {r = 0, g = 0, b = 0, a = 0.8},
+        colorSwipeLOC = {r = 0.8, g = 0.1, b = 0.1},
+        hideCooldownBling = false,
+
+        -- Bar 1 (Main Action Bar)
         bar1 = {
             enabled = true,
             buttons = 12,
             buttonsPerRow = 12,
             buttonSize = 32,
+            buttonHeight = 32,
             buttonSpacing = 2,
+            backdropSpacing = 4,
+
+            -- Visibility
+            alpha = 1,
+            mouseover = false,
+            mouseoverAlpha = 0.2,
+            clickThrough = false,
+            backdrop = true,
+            showGrid = true,
+            visibility = "[petbattle][vehicleui][overridebar] hide; show",
+
+            -- Positioning
+            point = "BOTTOM",
+            xOffset = 0,
+            yOffset = 4,
+
+            -- Paging (class-specific action page switching)
+            paging = true,
+
+            -- Text display
+            hotkeytext = true,
+            hotkeyColor = {r = 1, g = 1, b = 1},
+            hotkeyFont = "Friz Quadrata TT",
+            hotkeyFontSize = 12,
+            hotkeyFontOutline = "OUTLINE",
+            hotkeyTextPosition = "TOPRIGHT",
+            hotkeyTextXOffset = 0,
+            hotkeyTextYOffset = 0,
+
+            macrotext = true,
+            macroColor = {r = 1, g = 1, b = 1},
+            macroFont = "Friz Quadrata TT",
+            macroFontSize = 12,
+            macroFontOutline = "NONE",
+            macroTextPosition = "BOTTOM",
+            macroTextXOffset = 0,
+            macroTextYOffset = 2,
+
+            counttext = true,
+            countColor = {r = 1, g = 1, b = 1},
+            countFont = "Friz Quadrata TT",
+            countFontSize = 14,
+            countFontOutline = "OUTLINE",
+            countTextPosition = "BOTTOMRIGHT",
+            countTextXOffset = 0,
+            countTextYOffset = 2,
+        },
+
+        -- Bars 2-5 (Enabled by default)
+        bar2 = {
+            enabled = true,
+            buttons = 12,
+            buttonsPerRow = 12,
+            buttonSize = 32,
+            buttonHeight = 32,
+            buttonSpacing = 2,
+            backdropSpacing = 2,
+            alpha = 1,
+            mouseover = false,
+            mouseoverAlpha = 0.2,
+            backdrop = true,
+            showGrid = false,
+            visibility = "[petbattle][vehicleui][overridebar] hide; show",
+            point = "BOTTOM",
+            xOffset = 0,
+            yOffset = 40,
+            hotkeytext = true,
+            macrotext = true,
+            counttext = true,
+        },
+
+        bar3 = {
+            enabled = true,
+            buttons = 12,
+            buttonsPerRow = 12,
+            buttonSize = 32,
+            buttonHeight = 32,
+            buttonSpacing = 2,
+            backdropSpacing = 2,
+            alpha = 1,
+            mouseover = false,
+            mouseoverAlpha = 0.2,
+            backdrop = true,
+            showGrid = false,
+            visibility = "[petbattle][vehicleui][overridebar] hide; show",
+            point = "BOTTOM",
+            xOffset = 0,
+            yOffset = 76,
+            hotkeytext = true,
+            macrotext = true,
+            counttext = true,
+        },
+
+        bar4 = {
+            enabled = true,
+            buttons = 12,
+            buttonsPerRow = 1,
+            buttonSize = 32,
+            buttonHeight = 32,
+            buttonSpacing = 2,
+            backdropSpacing = 2,
+            alpha = 1,
+            mouseover = false,
+            mouseoverAlpha = 0.2,
+            backdrop = true,
+            showGrid = false,
+            visibility = "[petbattle][vehicleui][overridebar] hide; show",
+            point = "RIGHT",
+            xOffset = -4,
+            yOffset = 0,
+            hotkeytext = true,
+            macrotext = false,
+            counttext = true,
+        },
+
+        bar5 = {
+            enabled = true,
+            buttons = 12,
+            buttonsPerRow = 1,
+            buttonSize = 32,
+            buttonHeight = 32,
+            buttonSpacing = 2,
+            backdropSpacing = 2,
+            alpha = 1,
+            mouseover = false,
+            mouseoverAlpha = 0.2,
+            backdrop = true,
+            showGrid = false,
+            visibility = "[petbattle][vehicleui][overridebar] hide; show",
+            point = "RIGHT",
+            xOffset = -40,
+            yOffset = 0,
+            hotkeytext = true,
+            macrotext = false,
+            counttext = true,
+        },
+
+        -- Bars 6-15 (Disabled by default, for advanced users)
+        bar6 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 4, hotkeytext = true, macrotext = true, counttext = true },
+        bar7 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 40, hotkeytext = true, macrotext = true, counttext = true },
+        bar8 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 76, hotkeytext = true, macrotext = true, counttext = true },
+        bar9 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 112, hotkeytext = true, macrotext = true, counttext = true },
+        bar10 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 148, hotkeytext = true, macrotext = true, counttext = true },
+        bar11 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 184, hotkeytext = true, macrotext = true, counttext = true },
+        bar12 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 220, hotkeytext = true, macrotext = true, counttext = true },
+        bar13 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 256, hotkeytext = true, macrotext = true, counttext = true },
+        bar14 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 292, hotkeytext = true, macrotext = true, counttext = true },
+        bar15 = { enabled = false, buttons = 12, buttonsPerRow = 12, buttonSize = 32, buttonHeight = 32, buttonSpacing = 2, backdropSpacing = 2, alpha = 1, mouseover = false, backdrop = true, showGrid = false, visibility = "[petbattle][vehicleui][overridebar] hide; show", point = "BOTTOMLEFT", xOffset = 4, yOffset = 328, hotkeytext = true, macrotext = true, counttext = true },
+
+        -- Special bars
+        barPet = {
+            enabled = true,
+            buttons = 10,
+            buttonsPerRow = 10,
+            buttonSize = 30,
+            buttonHeight = 30,
+            buttonSpacing = 2,
+            backdropSpacing = 2,
             alpha = 1,
             mouseover = false,
             backdrop = true,
-            visibility = "[petbattle] hide; show",
+            showGrid = false,
             point = "BOTTOM",
-            growthDirection = "HORIZONTAL",
+            xOffset = 0,
+            yOffset = 112,
+            hotkeytext = true,
+            hotkeyFontSize = 10,
+            counttext = true,
+            countFontSize = 12,
         },
-        -- Additional bars would follow the same pattern
-        -- bar2 = { ... }
-        -- ... up to bar15
 
-        -- Special bars
-        pet = {
-            enabled = true,
-            buttons = 10,
-            buttonSize = 30,
-        },
-        stance = {
+        barStance = {
             enabled = true,
             buttonSize = 30,
+            buttonHeight = 30,
+            buttonSpacing = 2,
+            backdropSpacing = 2,
+            alpha = 1,
+            mouseover = false,
+            backdrop = true,
+            point = "BOTTOMLEFT",
+            xOffset = 4,
+            yOffset = 4,
+            hotkeytext = false,
         },
-        micro = {
+
+        microbar = {
             enabled = true,
             buttonSize = 20,
+            buttonHeight = 20,
+            buttonSpacing = 2,
+            backdropSpacing = 2,
+            alpha = 1,
+            mouseover = true,
+            mouseoverAlpha = 0.2,
+            backdrop = true,
+            point = "TOPRIGHT",
+            xOffset = -4,
+            yOffset = -4,
         },
     },
 
@@ -275,4 +463,4 @@ E.ProfileDefaults = {
 
 -- Apply defaults on load
 -- TODO: This will be integrated with AceDB later
-E.db = E:CopyTable(E.ProfileDefaults, E.db)
+E.db = CopyTable(E.ProfileDefaults, E.db)

@@ -1198,6 +1198,199 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 ---
 
+# Phase 8: Performance Optimization Tests
+
+## Test 8.1: Centralized Event Handling
+
+**Test**: Verify EventFrame exists
+
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");print("EventFrame:",L.EventFrame and "YES" or "NO")
+```
+**Expected**: Message shows "EventFrame: YES"
+
+**Test**: Verify OnEvent handler exists
+
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");print("OnEvent:",L.EventFrame:GetScript("OnEvent") and "YES" or "NO")
+```
+**Expected**: Message shows "OnEvent: YES"
+
+## Test 8.2: Batch Update Functions
+
+**Create test buttons**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T81=L:CreateSpellButton(1231411,"T81",UIParent);_G.T81:SetPoint("CENTER",0,100);_G.T81:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T82=L:CreateItemButton(6948,"T82",UIParent);_G.T82:SetPoint("CENTER",0,50);_G.T82:Show()
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T83=L:CreateSpellButton(2565,"T83",UIParent);_G.T83:SetPoint("CENTER",0,0);_G.T83:Show()
+```
+**Expected**: Three buttons appear
+
+**Test ForAllButtons hide**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:ForAllButtons(function(b)b:Hide()end);print("All hidden")
+```
+**Expected**: All buttons disappear
+
+**Test ForAllButtons show**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:ForAllButtons(function(b)b:Show();L:UpdateButton(b)end);print("All shown")
+```
+**Expected**: All buttons reappear with icons
+
+**Test ForAllButtonsWithSpell**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local c=0;L:ForAllButtonsWithSpell(1231411,function(b)c=c+1;b:SetAlpha(0.5)end);print("Count:",c)
+```
+**Expected**: T81 semi-transparent, "Count: 1"
+
+**Test ForAllButtonsWithItem**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local c=0;L:ForAllButtonsWithItem(6948,function(b)c=c+1;b:SetAlpha(0.5)end);print("Count:",c)
+```
+**Expected**: T82 semi-transparent, "Count: 1"
+
+**Reset alpha**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:ForAllButtons(function(b)b:SetAlpha(1.0)end);print("Reset")
+```
+
+**Cleanup**:
+```lua
+/run _G.T81:Hide();_G.T81:SetParent(nil);_G.T81=nil;_G.T82:Hide();_G.T82:SetParent(nil);_G.T82=nil;_G.T83:Hide();_G.T83:SetParent(nil);_G.T83=nil
+```
+
+## Test 8.3: Range Update Throttling
+
+**Test OnUpdate exists**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");print("OnUpdate:",L.EventFrame:GetScript("OnUpdate") and "YES" or "NO")
+```
+**Expected**: "OnUpdate: YES"
+
+**Create ranged spell button** (manual test - observe range updates):
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T83=L:CreateSpellButton(116,"T83",UIParent);_G.T83:SetPoint("CENTER");_G.T83:Show()
+```
+**Expected**: Button appears (Frostbolt, 40yd range). Target an enemy, move out of range to see throttled updates
+
+**Cleanup**:
+```lua
+/run _G.T83:Hide();_G.T83:SetParent(nil);_G.T83=nil
+```
+
+## Test 8.4: Active Button Tracking
+
+**Create button and check tracking**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T84=L:CreateSpellButton(123141,"T84",UIParent);_G.T84:SetPoint("CENTER");_G.T84:Show();print("Active:",#L.activeButtons)
+```
+**Expected**: Shows active count >= 1
+
+**Create more buttons**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T85=L:CreateItemButton(6948,"T85",UIParent);_G.T85:SetPoint("CENTER",0,50);_G.T85:Show();print("Active:",#L.activeButtons)
+```
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T86=L:CreateSpellButton(2565,"T86",UIParent);_G.T86:SetPoint("CENTER",0,-50);_G.T86:Show();print("Active:",#L.activeButtons)
+```
+**Expected**: Active count increases
+
+**Clear button and verify untracked**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local b=#L.activeButtons;L:ClearButton(_G.T84);print("Before:",b,"After:",#L.activeButtons)
+```
+**Expected**: After < Before
+
+**Test ButtonHasContent**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");print("T84:",L:ButtonHasContent(_G.T84),"T85:",L:ButtonHasContent(_G.T85))
+```
+**Expected**: T84=false, T85=true
+
+**Cleanup**:
+```lua
+/run _G.T84:Hide();_G.T84:SetParent(nil);_G.T84=nil;_G.T85:Hide();_G.T85:SetParent(nil);_G.T85=nil;_G.T86:Hide();_G.T86:SetParent(nil);_G.T86=nil
+```
+
+## Test 8.5: Lazy Initialization (Retail only)
+
+**Create button - check chargeCooldown not created initially**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");_G.T87=L:CreateSpellButton(123141,"T87",UIParent);_G.T87:SetPoint("CENTER");_G.T87:Show();print("CD:",_G.T87.chargeCooldown and "YES" or "NO")
+```
+**Expected**: "CD: NO" (not created yet)
+
+**Trigger lazy creation**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:EnsureChargeCooldown(_G.T87);print("CD:",_G.T87.chargeCooldown and "YES" or "NO")
+```
+**Expected (Retail)**: "CD: YES" | **Expected (Classic)**: "CD: NO"
+
+**Verify idempotent (doesn't recreate)**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local f1=_G.T87.chargeCooldown;L:EnsureChargeCooldown(_G.T87);print("Same:",f1==_G.T87.chargeCooldown)
+```
+**Expected**: "Same: true"
+
+**Cleanup**:
+```lua
+/run _G.T87:Hide();_G.T87:SetParent(nil);_G.T87=nil
+```
+
+## Test 8.6: Performance & Memory Test
+
+**Create 50 buttons and measure**:
+```lua
+/run L=LibStub("LibTotalActionButtons-1.0");s=debugprofilestop();for i=1,50 do b=L:CreateSpellButton(123141,"TP"..i,UIParent);b:SetPoint("CENTER",math.random(-400,400),math.random(-300,300));b:Show()end;print((debugprofilestop()-s).."ms")
+```
+**Expected**: < 100ms total (~2ms per button)
+
+**Test ForAllButtons performance**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");local s=debugprofilestop();L:ForAllButtons(function(b)b:SetAlpha(b:GetAlpha())end);print(string.format("%.2fms for %d btns",debugprofilestop()-s,#L.buttons))
+```
+**Expected**: < 5ms for 50+ buttons
+
+**Count active buttons**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");print("Total:",#L.buttons,"Active:",#L.activeButtons)
+```
+**Expected**: Active = 50 (buttons with content from this test), Total = 62+ (all buttons ever created, including action bars on screen)
+
+**Memory check**:
+```lua
+/run UpdateAddOnMemoryUsage();print(string.format("TotalUI: %.2f KB",GetAddOnMemoryUsage("TotalUI")))
+```
+**Expected**: < 50 MB (typically 10-20 MB for full UI addon with 50+ test buttons)
+
+**Cleanup**:
+```lua
+/run for i=1,50 do local b=_G["TP"..i];if b then b:Hide();b:SetParent(nil);_G["TP"..i]=nil end end;print("Cleaned")
+```
+
+## Test 8.7: Integration Test - Event Handling
+
+**Create action button**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:SetDebug(true);_G.T88=L:CreateActionButton(1,"T88",UIParent);_G.T88:SetPoint("CENTER");_G.T88:Show();print("Place spell on slot 1")
+```
+**Expected**: Button appears, debug enabled
+
+**Manual Test**: Place/remove spell on action slot 1
+**Expected**: Button updates immediately, debug shows events
+
+**Cleanup**:
+```lua
+/run local L=LibStub("LibTotalActionButtons-1.0");L:SetDebug(false);_G.T88:Hide();_G.T88:SetParent(nil);_G.T88=nil
+```
+
+---
+
 ## Troubleshooting
 
 If any test fails:
