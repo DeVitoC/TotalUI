@@ -19,7 +19,7 @@ E.LibsLoaded = {
     AceGUI = false,
     AceConsole = false,
     LibSharedMedia = false,
-    LibActionButton = false,
+    LibTotalActionButtons = false,
 }
 
 -----------------------------------
@@ -62,16 +62,12 @@ if LibStub then
         E.LibsLoaded.LibSharedMedia = true
     end
 
-    -- Load LibActionButton (for Phase 1)
-    -- Try standard version first, then ls- fork
-    local LAB = TryLoadLib("LibActionButton-1.0")
-    if not LAB then
-        LAB = TryLoadLib("LibActionButton-1.0-ls")
-        if LAB then
-            -- Store under standard name for consistency
-            E.Libs["LibActionButton-1.0"] = LAB
-            E.LibsLoaded.LibActionButton = true
-        end
+    -- Load LibTotalActionButtons (for Phase 1)
+    -- Our custom action button library
+    local LTAB = TryLoadLib("LibTotalActionButtons-1.0")
+    if LTAB then
+        E.Libs.LibTotalActionButtons = LTAB
+        E.LibsLoaded.LibTotalActionButtons = true
     end
 else
     E:Print("Warning: LibStub not found. Some features will be limited.")

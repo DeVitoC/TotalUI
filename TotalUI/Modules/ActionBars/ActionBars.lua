@@ -11,9 +11,21 @@ local AB = E:NewModule("ActionBars")
 
 -- Get ActionBar class from namespace (loaded via .toc)
 local ActionBar = ns.ActionBar
+local PetBar = ns.PetBar
+local StanceBar = ns.StanceBar
+local MicroBar = ns.MicroBar
+local ExtraButtons = ns.ExtraButtons
+local Keybinds = ns.Keybinds
+local Cooldown = ns.Cooldown
 
 -- Module variables
 AB.bars = {}
+AB.petBar = nil
+AB.stanceBar = nil
+AB.microBar = nil
+AB.extraButtons = nil
+AB.keybinds = nil
+AB.cooldown = nil
 AB.initialized = false
 
 -----------------------------------
@@ -33,15 +45,15 @@ function AB:Initialize()
     end
 
     -- Verify LibTotalActionButtons is available via LibStub (Phase 1 Step 1.5)
-    local LAB = LibStub("LibTotalActionButtons-1.0", true)  -- true = silent fail
-    if not LAB then
+    local LTAB = LibStub("LibTotalActionButtons-1.0", true)  -- true = silent fail
+    if not LTAB then
         E:Print("ActionBars: LibTotalActionButtons not loaded. Action bars will not function.")
         return
     end
 
     -- Store reference for convenience
-    self.LAB = LAB
-    E:Print(string.format("ActionBars: Using %s", LAB.VERSION_STRING))
+    self.LTAB = LTAB
+    E:Print(string.format("ActionBars: Using %s", LTAB.VERSION_STRING))
 
     -- Hide Blizzard action bars
     self:HideBlizzard()
@@ -74,13 +86,28 @@ end
 -----------------------------------
 
 function AB:CreateBars()
-    -- For Phase 1A, we'll start with just Bar 1
-    -- This will be expanded in Phase 1B
-    self:CreateBar(1)
+    -- Create all 15 standard action bars
+    for i = 1, 15 do
+        self:CreateBar(i)
+    end
 
-    -- TODO: Phase 1B - Create bars 2-5
-    -- TODO: Phase 1C - Create special bars (pet, stance, micro)
-    -- TODO: Phase 1D - Create bars 6-15
+    -- Create pet bar
+    self:CreatePetBar()
+
+    -- Create stance bar
+    self:CreateStanceBar()
+
+    -- Create micro bar
+    self:CreateMicroBar()
+
+    -- Create extra action buttons
+    self:CreateExtraButtons()
+
+    -- Initialize keybind handler
+    self:InitializeKeybinds()
+
+    -- Initialize cooldown handler
+    self:InitializeCooldown()
 end
 
 function AB:CreateBar(barID)
@@ -103,6 +130,147 @@ function AB:CreateBar(barID)
         E:Print(string.format("Created Bar %d", barID))
     else
         E:Print(string.format("Failed to create Bar %d", barID))
+    end
+end
+
+function AB:CreatePetBar()
+    local db = E.db.actionbar.barPet
+
+    if not db then
+        E:Print("ActionBars: No configuration for pet bar")
+        return
+    end
+
+    if not db.enabled then
+        return
+    end
+
+    -- Check if PetBar class loaded
+    if not PetBar then
+        E:Print("ActionBars: Failed to load PetBar class")
+        return
+    end
+
+    -- Create the pet bar using PetBar class
+    local petBar = PetBar:New(UIParent)
+
+    if petBar then
+        self.petBar = petBar
+        E:Print("Created Pet Bar")
+    else
+        E:Print("Failed to create Pet Bar")
+    end
+end
+
+function AB:CreateStanceBar()
+    local db = E.db.actionbar.barStance
+
+    if not db then
+        E:Print("ActionBars: No configuration for stance bar")
+        return
+    end
+
+    if not db.enabled then
+        return
+    end
+
+    -- Check if StanceBar class loaded
+    if not StanceBar then
+        E:Print("ActionBars: Failed to load StanceBar class")
+        return
+    end
+
+    -- Create the stance bar using StanceBar class
+    local stanceBar = StanceBar:New(UIParent)
+
+    if stanceBar then
+        self.stanceBar = stanceBar
+        E:Print("Created Stance Bar")
+    else
+        E:Print("Failed to create Stance Bar")
+    end
+end
+
+function AB:CreateMicroBar()
+    local db = E.db.actionbar.microbar
+
+    if not db then
+        E:Print("ActionBars: No configuration for micro bar")
+        return
+    end
+
+    if not db.enabled then
+        return
+    end
+
+    -- Check if MicroBar class loaded
+    if not MicroBar then
+        E:Print("ActionBars: Failed to load MicroBar class")
+        return
+    end
+
+    -- Create the micro bar using MicroBar class
+    local microBar = MicroBar:New(UIParent)
+
+    if microBar then
+        self.microBar = microBar
+        E:Print("Created Micro Bar")
+    else
+        E:Print("Failed to create Micro Bar")
+    end
+end
+
+function AB:CreateExtraButtons()
+    -- Check if ExtraButtons class loaded
+    if not ExtraButtons then
+        E:Print("ActionBars: Failed to load ExtraButtons class")
+        return
+    end
+
+    -- Create the extra buttons handler
+    local extraButtons = ExtraButtons:New()
+
+    if extraButtons then
+        self.extraButtons = extraButtons
+        E:Print("Created Extra Action Buttons")
+    else
+        E:Print("Failed to create Extra Action Buttons")
+    end
+end
+
+function AB:InitializeKeybinds()
+    -- Check if Keybinds handler loaded
+    if not Keybinds then
+        E:Print("ActionBars: Failed to load Keybinds handler")
+        return
+    end
+
+    -- Create the keybinds handler (pass reference to this module)
+    local keybinds = Keybinds:New(self)
+
+    if keybinds then
+        self.keybinds = keybinds
+        E:Print("Keybinds system initialized")
+    else
+        E:Print("Failed to initialize keybinds")
+    end
+end
+
+function AB:InitializeCooldown()
+    -- Check if Cooldown handler loaded
+    if not Cooldown then
+        E:Print("ActionBars: Failed to load Cooldown handler")
+        return
+    end
+
+    -- Create the cooldown handler
+    local cooldown = Cooldown:New()
+
+    if cooldown then
+        self.cooldown = cooldown
+        E:Print("Cooldown system initialized")
+    else
+        E:Print("Failed to initialize cooldown")
     end
 end
 
@@ -265,6 +433,31 @@ function AB:Update()
             bar:Update()
         end
     end
+
+    -- Update pet bar
+    if self.petBar and self.petBar.Update then
+        self.petBar:Update()
+    end
+
+    -- Update stance bar
+    if self.stanceBar and self.stanceBar.Update then
+        self.stanceBar:Update()
+    end
+
+    -- Update micro bar
+    if self.microBar and self.microBar.Update then
+        self.microBar:Update()
+    end
+
+    -- Update extra buttons
+    if self.extraButtons and self.extraButtons.Update then
+        self.extraButtons:Update()
+    end
+
+    -- Update cooldown settings
+    if self.cooldown and self.cooldown.Update then
+        self.cooldown:Update()
+    end
 end
 
 -----------------------------------
@@ -342,16 +535,29 @@ function AB:HandleCommand(args)
         end
     elseif cmd == "status" then
         E:Print("ActionBar Status:")
-        for i = 1, 5 do
+        for i = 1, 15 do
             local db = E.db.actionbar["bar" .. i]
             if db then
                 E:Print(string.format("  Bar %d: %s", i, db.enabled and "Enabled" or "Disabled"))
             end
         end
+    elseif cmd == "keybind" or cmd == "kb" then
+        -- Handle keybind commands
+        if self.keybinds then
+            -- Pass remaining args to keybinds handler
+            local keybindArgs = {}
+            for i = 2, #args do
+                table.insert(keybindArgs, args[i])
+            end
+            self.keybinds:HandleCommand(keybindArgs)
+        else
+            E:Print("Keybinds system not initialized")
+        end
     else
         E:Print("ActionBar Commands:")
         E:Print("  /totalui actionbar toggle <1-15> - Toggle a bar")
         E:Print("  /totalui actionbar status - Show bar status")
+        E:Print("  /totalui actionbar keybind - Toggle keybind mode")
     end
 end
 

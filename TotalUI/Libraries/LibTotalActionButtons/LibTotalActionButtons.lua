@@ -25,19 +25,19 @@ if not LibStub then
 end
 
 -- Register library
-local LAB, oldversion = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
-if not LAB then
+local LTAB, oldversion = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
+if not LTAB then
     return  -- Already loaded newer/same version
 end
 
 -- Preserve existing data on upgrade
 if oldversion then
-    LAB.buttons = LAB.buttons or {}
-    LAB.activeButtons = LAB.activeButtons or {}
-    LAB.actionButtons = LAB.actionButtons or {}
-    LAB.nonActionButtons = LAB.nonActionButtons or {}
-    LAB.actionButtonsNonUI = LAB.actionButtonsNonUI or {}
-    LAB.NumChargeCooldowns = LAB.NumChargeCooldowns or 0
+    LTAB.buttons = LTAB.buttons or {}
+    LTAB.activeButtons = LTAB.activeButtons or {}
+    LTAB.actionButtons = LTAB.actionButtons or {}
+    LTAB.nonActionButtons = LTAB.nonActionButtons or {}
+    LTAB.actionButtonsNonUI = LTAB.actionButtonsNonUI or {}
+    LTAB.NumChargeCooldowns = LTAB.NumChargeCooldowns or 0
 
     -- Convert old array-style button tables to set-style (button as key)
     -- This handles upgrades from versions that used ipairs/table.insert
@@ -69,20 +69,20 @@ if oldversion then
         end
     end
 
-    convertToSet(LAB.buttons)
-    convertToSet(LAB.activeButtons)
+    convertToSet(LTAB.buttons)
+    convertToSet(LTAB.activeButtons)
 else
-    LAB.buttons = {}
-    LAB.activeButtons = {}
-    LAB.actionButtons = {}
-    LAB.nonActionButtons = {}
-    LAB.actionButtonsNonUI = {}
-    LAB.NumChargeCooldowns = 0
+    LTAB.buttons = {}
+    LTAB.activeButtons = {}
+    LTAB.actionButtons = {}
+    LTAB.nonActionButtons = {}
+    LTAB.actionButtonsNonUI = {}
+    LTAB.NumChargeCooldowns = 0
 end
 
 -- Version info
-LAB.VERSION = MINOR_VERSION
-LAB.VERSION_STRING = string.format("%s (v%d)", MAJOR_VERSION, MINOR_VERSION)
+LTAB.VERSION = MINOR_VERSION
+LTAB.VERSION_STRING = string.format("%s (v%d)", MAJOR_VERSION, MINOR_VERSION)
 
 -----------------------------------
 -- WOW VERSION DETECTION
@@ -96,11 +96,11 @@ local WoWWrath = (WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC)
 local WoWCata = (WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC)
 
 -- Store in library
-LAB.WoWRetail = WoWRetail
-LAB.WoWClassic = WoWClassic
-LAB.WoWBCC = WoWBCC
-LAB.WoWWrath = WoWWrath
-LAB.WoWCata = WoWCata
+LTAB.WoWRetail = WoWRetail
+LTAB.WoWClassic = WoWClassic
+LTAB.WoWBCC = WoWBCC
+LTAB.WoWWrath = WoWWrath
+LTAB.WoWCata = WoWCata
 
 -- Determine version string for display
 local versionType
@@ -118,7 +118,7 @@ else
     versionType = "Unknown"
 end
 
-LAB.VERSION_INFO = {
+LTAB.VERSION_INFO = {
     detectedVersion = versionType,
     isRetail = WoWRetail,
     isClassic = not WoWRetail,
@@ -286,7 +286,7 @@ else
 end
 
 -- Store compatibility wrappers
-LAB.Compat = {
+LTAB.Compat = {
     GetActionCharges = GetActionCharges,
     GetActionLossOfControlCooldown = GetActionLossOfControlCooldown,
     GetSpellCharges = GetSpellCharges,
@@ -312,27 +312,27 @@ LAB.Compat = {
 -----------------------------------
 
 -- Debug mode (Phase 1 Step 1.4.1)
-LAB.debug = false
+LTAB.debug = false
 
-function LAB:SetDebug(enabled)
+function LTAB:SetDebug(enabled)
     self.debug = enabled
     if enabled then
         print("|cffff9900[LTAB]|r Debug mode enabled")
     end
 end
 
-function LAB:DebugPrint(...)
+function LTAB:DebugPrint(...)
     if self.debug then
         print("|cffff9900[LTAB Debug]|r", ...)
     end
 end
 
-function LAB:Error(message, level)
+function LTAB:Error(message, level)
     level = level or 2
     error("LibTotalActionButtons: " .. message, level)
 end
 
-function LAB:Warning(message)
+function LTAB:Warning(message)
     if self.debug then
         print("|cffffaa00[LTAB Warning]|r", message)
     end
@@ -345,11 +345,11 @@ end
 -- Parameter validation (Phase 1 Step 1.4.2)
 local function ValidateButton(button, functionName)
     if not button then
-        LAB:Error(functionName .. ": button parameter is nil!", 3)
+        LTAB:Error(functionName .. ": button parameter is nil!", 3)
         return false
     end
     if type(button) ~= "table" then
-        LAB:Error(functionName .. ": button must be a frame/table!", 3)
+        LTAB:Error(functionName .. ": button must be a frame/table!", 3)
         return false
     end
     return true
@@ -357,19 +357,19 @@ end
 
 local function ValidateNumber(value, name, functionName, min, max)
     if value == nil then
-        LAB:Error(string.format("%s: %s is required!", functionName, name), 3)
+        LTAB:Error(string.format("%s: %s is required!", functionName, name), 3)
         return false
     end
     if type(value) ~= "number" then
-        LAB:Error(string.format("%s: %s must be a number!", functionName, name), 3)
+        LTAB:Error(string.format("%s: %s must be a number!", functionName, name), 3)
         return false
     end
     if min and value < min then
-        LAB:Error(string.format("%s: %s must be >= %d!", functionName, name, min), 3)
+        LTAB:Error(string.format("%s: %s must be >= %d!", functionName, name, min), 3)
         return false
     end
     if max and value > max then
-        LAB:Error(string.format("%s: %s must be <= %d!", functionName, name, max), 3)
+        LTAB:Error(string.format("%s: %s must be <= %d!", functionName, name, max), 3)
         return false
     end
     return true
@@ -377,21 +377,21 @@ end
 
 local function ValidateString(value, name, functionName, allowEmpty)
     if value == nil then
-        LAB:Error(string.format("%s: %s is required!", functionName, name), 3)
+        LTAB:Error(string.format("%s: %s is required!", functionName, name), 3)
         return false
     end
     if type(value) ~= "string" then
-        LAB:Error(string.format("%s: %s must be a string!", functionName, name), 3)
+        LTAB:Error(string.format("%s: %s must be a string!", functionName, name), 3)
         return false
     end
     if not allowEmpty and value == "" then
-        LAB:Error(string.format("%s: %s cannot be empty!", functionName, name), 3)
+        LTAB:Error(string.format("%s: %s cannot be empty!", functionName, name), 3)
         return false
     end
     return true
 end
 
-LAB.Validate = {
+LTAB.Validate = {
     Button = ValidateButton,
     Number = ValidateNumber,
     String = ValidateString,
@@ -402,7 +402,7 @@ LAB.Validate = {
 -----------------------------------
 
 -- Combat lockdown checks (Phase 1 Step 1.4.3)
-function LAB:CheckCombat(functionName, errorOnCombat)
+function LTAB:CheckCombat(functionName, errorOnCombat)
     if InCombatLockdown() then
         if errorOnCombat then
             self:Error(functionName .. ": Cannot be called during combat!", 3)
@@ -414,7 +414,7 @@ function LAB:CheckCombat(functionName, errorOnCombat)
     return false  -- Not in combat
 end
 
-function LAB:SafeProtectedCall(func, ...)
+function LTAB:SafeProtectedCall(func, ...)
     if InCombatLockdown() then
         self:Warning("Attempted protected call during combat - skipped")
         return false
@@ -438,18 +438,18 @@ local AddonName, ns = ...
 if ns and ns.public then
     local E = ns.public
     E.Libs = E.Libs or {}
-    E.Libs.LibTotalActionButtons = LAB
+    E.Libs.LibTotalActionButtons = LTAB
 end
 
 -- Debug: Confirm loading
-print(string.format("|cff1784d1TotalUI|r: %s loaded (%s)", LAB.VERSION_STRING, versionType))
+print(string.format("|cff1784d1TotalUI|r: %s loaded (%s)", LTAB.VERSION_STRING, versionType))
 
 -----------------------------------
 -- CONSTANTS
 -----------------------------------
 
 -- Button type enum (Phase 2 Step 2.1)
-LAB.ButtonType = {
+LTAB.ButtonType = {
     ACTION = "action",
     SPELL = "spell",
     ITEM = "item",
@@ -496,7 +496,7 @@ local ActionTypeUpdateFunctions = {
         if not self.buttonAction or self.buttonAction == 0 then
             return nil
         end
-        return LAB.Compat.GetActionCharges(self.buttonAction)
+        return LTAB.Compat.GetActionCharges(self.buttonAction)
     end,
 
     -- State functions
@@ -561,7 +561,7 @@ local ActionTypeUpdateFunctions = {
         if not self.buttonAction or self.buttonAction == 0 then
             return 0, 0
         end
-        return LAB.Compat.GetActionLossOfControlCooldown(self.buttonAction)
+        return LTAB.Compat.GetActionLossOfControlCooldown(self.buttonAction)
     end,
 
     -- Spell ID for proc detection
@@ -611,7 +611,7 @@ local ActionTypeUpdateFunctions = {
     end,
 }
 
-LAB.ActionTypeUpdateFunctions = ActionTypeUpdateFunctions
+LTAB.ActionTypeUpdateFunctions = ActionTypeUpdateFunctions
 
 -----------------------------------
 -- BUTTON TYPE: SPELL (Phase 2 Step 2.3)
@@ -650,7 +650,7 @@ local SpellTypeUpdateFunctions = {
             return false
         end
         -- Check if spell exists
-        local name = LAB.Compat.GetSpellInfo(self.buttonAction)
+        local name = LTAB.Compat.GetSpellInfo(self.buttonAction)
         return name ~= nil
     end,
 
@@ -658,9 +658,9 @@ local SpellTypeUpdateFunctions = {
         if not self.buttonAction or self.buttonAction == 0 then
             return nil
         end
-        local texture = LAB.Compat.GetSpellTexture(self.buttonAction)
+        local texture = LTAB.Compat.GetSpellTexture(self.buttonAction)
         if not texture then
-            LAB:DebugPrint("GetActionTexture: Invalid spell ID", self.buttonAction)
+            LTAB:DebugPrint("GetActionTexture: Invalid spell ID", self.buttonAction)
         end
         return texture
     end,
@@ -670,8 +670,8 @@ local SpellTypeUpdateFunctions = {
     end,
 
     GetActionCount = function(self)
-        if LAB.Compat.GetSpellCount then
-            return LAB.Compat.GetSpellCount(self.buttonAction)
+        if LTAB.Compat.GetSpellCount then
+            return LTAB.Compat.GetSpellCount(self.buttonAction)
         end
         return 0
     end,
@@ -680,8 +680,8 @@ local SpellTypeUpdateFunctions = {
         if not self.buttonAction or self.buttonAction == 0 then
             return nil
         end
-        if LAB.Compat.GetSpellCharges then
-            return LAB.Compat.GetSpellCharges(self.buttonAction)
+        if LTAB.Compat.GetSpellCharges then
+            return LTAB.Compat.GetSpellCharges(self.buttonAction)
         end
         return nil
     end,
@@ -692,16 +692,16 @@ local SpellTypeUpdateFunctions = {
         end
 
         -- Modern Retail: Use spell ID directly
-        if WoWRetail and LAB.Compat.IsSpellInRange then
-            local inRange = LAB.Compat.IsSpellInRange(self.buttonAction, "target")
+        if WoWRetail and LTAB.Compat.IsSpellInRange then
+            local inRange = LTAB.Compat.IsSpellInRange(self.buttonAction, "target")
             -- Modern API returns true/false/nil directly
             return inRange
         end
 
         -- Classic: Find spell slot first
         local slot = FindSpellBookSlotBySpellID(self.buttonAction)
-        if slot and LAB.Compat.IsSpellInRange then
-            local inRange = LAB.Compat.IsSpellInRange(slot, BOOKTYPE_SPELL, "target")
+        if slot and LTAB.Compat.IsSpellInRange then
+            local inRange = LTAB.Compat.IsSpellInRange(slot, BOOKTYPE_SPELL, "target")
             if inRange == 1 then
                 return true
             elseif inRange == 0 then
@@ -715,7 +715,7 @@ local SpellTypeUpdateFunctions = {
         if not self.buttonAction or self.buttonAction == 0 then
             return false, false
         end
-        return LAB.Compat.IsUsableSpell(self.buttonAction)
+        return LTAB.Compat.IsUsableSpell(self.buttonAction)
     end,
 
     IsCurrentAction = function(self)
@@ -762,15 +762,15 @@ local SpellTypeUpdateFunctions = {
         if not self.buttonAction or self.buttonAction == 0 then
             return 0, 0, 1, 1
         end
-        return LAB.Compat.GetSpellCooldown(self.buttonAction)
+        return LTAB.Compat.GetSpellCooldown(self.buttonAction)
     end,
 
     GetLossOfControlCooldown = function(self)
         if not self.buttonAction or self.buttonAction == 0 then
             return nil
         end
-        if LAB.Compat.GetSpellLossOfControlCooldown then
-            return LAB.Compat.GetSpellLossOfControlCooldown(self.buttonAction)
+        if LTAB.Compat.GetSpellLossOfControlCooldown then
+            return LTAB.Compat.GetSpellLossOfControlCooldown(self.buttonAction)
         end
         return nil
     end,
@@ -780,7 +780,7 @@ local SpellTypeUpdateFunctions = {
     end,
 }
 
-LAB.SpellTypeUpdateFunctions = SpellTypeUpdateFunctions
+LTAB.SpellTypeUpdateFunctions = SpellTypeUpdateFunctions
 
 -----------------------------------
 -- BUTTON TYPE: ITEM (Phase 2 Step 2.4)
@@ -823,8 +823,8 @@ local ItemTypeUpdateFunctions = {
         end
         -- Items with on-use effects might have charges
         local hasSpell = GetItemSpell(self.buttonAction)
-        if hasSpell and LAB.Compat.GetItemCharges then
-            return LAB.Compat.GetItemCharges(self.buttonAction)
+        if hasSpell and LTAB.Compat.GetItemCharges then
+            return LTAB.Compat.GetItemCharges(self.buttonAction)
         end
         return nil
     end,
@@ -914,7 +914,7 @@ local ItemTypeUpdateFunctions = {
     end,
 }
 
-LAB.ItemTypeUpdateFunctions = ItemTypeUpdateFunctions
+LTAB.ItemTypeUpdateFunctions = ItemTypeUpdateFunctions
 
 -----------------------------------
 -- BUTTON TYPE: MACRO (Phase 2 Step 2.5)
@@ -984,10 +984,10 @@ local MacroTypeUpdateFunctions = {
     end,
 }
 
-LAB.MacroTypeUpdateFunctions = MacroTypeUpdateFunctions
+LTAB.MacroTypeUpdateFunctions = MacroTypeUpdateFunctions
 
 -- Action button state colors
-LAB.COLORS = {
+LTAB.COLORS = {
     NORMAL = {1, 1, 1},
     OUT_OF_RANGE = {0.8, 0.1, 0.1},
     OUT_OF_POWER = {0.1, 0.3, 0.8},
@@ -995,7 +995,7 @@ LAB.COLORS = {
 }
 
 -- Events that require button updates
-LAB.UPDATE_EVENTS = {
+LTAB.UPDATE_EVENTS = {
     "ACTIONBAR_SLOT_CHANGED",
     "ACTIONBAR_UPDATE_COOLDOWN",
     "ACTIONBAR_UPDATE_STATE",
@@ -1018,13 +1018,13 @@ LAB.UPDATE_EVENTS = {
 -- BUTTON CREATION
 -----------------------------------
 
-function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
+function LTAB:CreateButton(actionID, name, parent, config, skipUpdate)
     -- Validate parameters (Phase 1 Step 1.4.4)
-    if not LAB.Validate.Number(actionID, "actionID", "CreateButton", 1) then
+    if not LTAB.Validate.Number(actionID, "actionID", "CreateButton", 1) then
         return nil
     end
 
-    if not LAB.Validate.String(name, "name", "CreateButton", false) then
+    if not LTAB.Validate.String(name, "name", "CreateButton", false) then
         return nil
     end
 
@@ -1055,9 +1055,9 @@ function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
     button.actionID = actionID
 
     -- Phase 2: Button type system
-    button.buttonType = LAB.ButtonType.ACTION  -- Default to action type
+    button.buttonType = LTAB.ButtonType.ACTION  -- Default to action type
     button.buttonAction = actionID
-    button.UpdateFunctions = LAB.ActionTypeUpdateFunctions  -- Phase 2 Step 2.2
+    button.UpdateFunctions = LTAB.ActionTypeUpdateFunctions  -- Phase 2 Step 2.2
 
     -- Phase 12: Store header if parent is a secure header
     if parent and parent.WrapScript then
@@ -1084,7 +1084,7 @@ function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
         self:WrapOnClick(button)
 
         -- Mark that button uses custom flyout system
-        button:SetAttribute("LABUseCustomFlyout", true)
+        button:SetAttribute("LTABUseCustomFlyout", true)
     end
 
     -- Initial update for action buttons (type-specific buttons skip and do their own update)
@@ -1098,7 +1098,7 @@ function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
     return button
 end
 
-function LAB:InitializeButton(button)
+function LTAB:InitializeButton(button)
     -- Get references to button elements
     button._icon = button.icon or _G[button:GetName() .. "Icon"]
     button._count = button.Count or _G[button:GetName() .. "Count"]
@@ -1133,7 +1133,7 @@ function LAB:InitializeButton(button)
         templateCooldown:SetAlpha(0)
 
         -- Create our own cooldown frame with controllable frame level
-        button._cooldown = CreateFrame("Cooldown", button:GetName() .. "LABCooldown", button, "CooldownFrameTemplate")
+        button._cooldown = CreateFrame("Cooldown", button:GetName() .. "LTABCooldown", button, "CooldownFrameTemplate")
         button._cooldown:SetAllPoints(button._icon)
         button._cooldown:SetDrawEdge(true)
         button._cooldown:SetDrawSwipe(true)
@@ -1173,7 +1173,7 @@ function LAB:InitializeButton(button)
     -- trying to use button.action for non-ACTION button types
     button.SetTooltip = function(self)
         -- Use our type-aware tooltip logic instead of Blizzard's
-        LAB:OnButtonEnter(self)
+        LTAB:OnButtonEnter(self)
     end
 
     -- Override Blizzard's UpdateUsable to prevent conflicts with our UpdateUsable
@@ -1181,14 +1181,14 @@ function LAB:InitializeButton(button)
     -- We handle usable state through our own update system
     button.UpdateUsable = function(self)
         -- Redirect to our UpdateUsable implementation
-        LAB:UpdateUsable(self)
+        LTAB:UpdateUsable(self)
     end
 
     -- Phase 9: Initialize advanced features
     self:InitSpellCastAnimFrame(button)
 end
 
-function LAB:SetupButtonAction(button, actionID)
+function LTAB:SetupButtonAction(button, actionID)
     -- Set the action on the button (makes it respond to the action slot)
     button:SetAttribute("type", "action")
     button:SetAttribute("action", actionID)
@@ -1197,34 +1197,34 @@ function LAB:SetupButtonAction(button, actionID)
     button.action = actionID
 end
 
-function LAB:SetupButtonScripts(button)
+function LTAB:SetupButtonScripts(button)
     -- OnUpdate for range checking
     button:SetScript("OnUpdate", function(self, elapsed)
-        LAB:OnButtonUpdate(self, elapsed)
+        LTAB:OnButtonUpdate(self, elapsed)
     end)
 
     -- OnEvent for action updates
     button:SetScript("OnEvent", function(self, event, ...)
-        LAB:OnButtonEvent(self, event, ...)
+        LTAB:OnButtonEvent(self, event, ...)
     end)
 
     -- OnEnter for tooltips
     button:SetScript("OnEnter", function(self)
-        LAB:OnButtonEnter(self)
+        LTAB:OnButtonEnter(self)
     end)
 
     -- OnLeave for tooltips
     button:SetScript("OnLeave", function(self)
-        LAB:OnButtonLeave(self)
+        LTAB:OnButtonLeave(self)
     end)
 
     -- Phase 5: Drag & Drop scripts
     button:SetScript("OnDragStart", function(self)
-        LAB:OnDragStart(self)
+        LTAB:OnDragStart(self)
     end)
 
     button:SetScript("OnReceiveDrag", function(self)
-        LAB:OnReceiveDrag(self)
+        LTAB:OnReceiveDrag(self)
     end)
 
     -- Phase 5: Visual feedback fixes for click-on-down
@@ -1243,14 +1243,14 @@ function LAB:SetupButtonScripts(button)
 
     -- OnAttributeChanged for secure attribute handling (Feature 14)
     button:SetScript("OnAttributeChanged", function(self, name, value)
-        LAB:OnAttributeChanged(self, name, value)
+        LTAB:OnAttributeChanged(self, name, value)
     end)
 
     -- Enable drag by default
-    LAB:EnableDragNDrop(button, true)
+    LTAB:EnableDragNDrop(button, true)
 end
 
-function LAB:RegisterButton(button)
+function LTAB:RegisterButton(button)
     -- Add to registry (use button as key for set-style iteration)
     self.buttons[button] = true
     self.activeButtons[button] = true
@@ -1274,18 +1274,18 @@ end
 -- @param parent frame Parent frame (defaults to UIParent)
 -- @param config table Optional configuration table
 -- @return button The created button frame or nil on error
-function LAB:CreateActionButton(actionID, name, parent, config)
+function LTAB:CreateActionButton(actionID, name, parent, config)
     -- CreateButton already creates action buttons by default
     return self:CreateButton(actionID, name, parent, config)
 end
 
-function LAB:CreateSpellButton(spellID, name, parent, config)
-    if not LAB.Validate.Number(spellID, "spellID", "CreateSpellButton", 1) then
+function LTAB:CreateSpellButton(spellID, name, parent, config)
+    if not LTAB.Validate.Number(spellID, "spellID", "CreateSpellButton", 1) then
         return nil
     end
 
     -- Validate spell exists
-    local spellName = LAB.Compat.GetSpellInfo(spellID)
+    local spellName = LTAB.Compat.GetSpellInfo(spellID)
     if not spellName then
         self:Warning(string.format("CreateSpellButton: Spell ID %d does not exist or is not known by this character", spellID))
         -- Still create the button, but it will be empty until spell is learned
@@ -1298,9 +1298,9 @@ function LAB:CreateSpellButton(spellID, name, parent, config)
     if not button then return nil end
 
     -- Set type to spell
-    button.buttonType = LAB.ButtonType.SPELL
+    button.buttonType = LTAB.ButtonType.SPELL
     button.buttonAction = spellID
-    button.UpdateFunctions = LAB.SpellTypeUpdateFunctions
+    button.UpdateFunctions = LTAB.SpellTypeUpdateFunctions
 
     -- Set secure attributes for spell
     button:SetAttribute("type", "spell")
@@ -1315,8 +1315,8 @@ function LAB:CreateSpellButton(spellID, name, parent, config)
     return button
 end
 
-function LAB:CreateItemButton(itemID, name, parent, config)
-    if not LAB.Validate.Number(itemID, "itemID", "CreateItemButton", 1) then
+function LTAB:CreateItemButton(itemID, name, parent, config)
+    if not LTAB.Validate.Number(itemID, "itemID", "CreateItemButton", 1) then
         return nil
     end
 
@@ -1326,9 +1326,9 @@ function LAB:CreateItemButton(itemID, name, parent, config)
     local button = self:CreateButton(itemID, name, parent, config, true)
     if not button then return nil end
 
-    button.buttonType = LAB.ButtonType.ITEM
+    button.buttonType = LTAB.ButtonType.ITEM
     button.buttonAction = itemID
-    button.UpdateFunctions = LAB.ItemTypeUpdateFunctions
+    button.UpdateFunctions = LTAB.ItemTypeUpdateFunctions
 
     button:SetAttribute("type", "item")
     button:SetAttribute("item", itemID)
@@ -1341,8 +1341,8 @@ function LAB:CreateItemButton(itemID, name, parent, config)
     return button
 end
 
-function LAB:CreateMacroButton(macroID, name, parent, config)
-    if not LAB.Validate.Number(macroID, "macroID", "CreateMacroButton", 1) then
+function LTAB:CreateMacroButton(macroID, name, parent, config)
+    if not LTAB.Validate.Number(macroID, "macroID", "CreateMacroButton", 1) then
         return nil
     end
 
@@ -1352,9 +1352,9 @@ function LAB:CreateMacroButton(macroID, name, parent, config)
     local button = self:CreateButton(macroID, name, parent, config, true)
     if not button then return nil end
 
-    button.buttonType = LAB.ButtonType.MACRO
+    button.buttonType = LTAB.ButtonType.MACRO
     button.buttonAction = macroID
-    button.UpdateFunctions = LAB.MacroTypeUpdateFunctions
+    button.UpdateFunctions = LTAB.MacroTypeUpdateFunctions
 
     button:SetAttribute("type", "macro")
     button:SetAttribute("macro", macroID)
@@ -1367,8 +1367,8 @@ function LAB:CreateMacroButton(macroID, name, parent, config)
     return button
 end
 
-function LAB:CreateCustomButton(id, name, parent, config, updateFunctions)
-    if not LAB.Validate.Number(id, "id", "CreateCustomButton", 1) then
+function LTAB:CreateCustomButton(id, name, parent, config, updateFunctions)
+    if not LTAB.Validate.Number(id, "id", "CreateCustomButton", 1) then
         return nil
     end
 
@@ -1383,7 +1383,7 @@ function LAB:CreateCustomButton(id, name, parent, config, updateFunctions)
     local button = self:CreateButton(id, name, parent, config, true)
     if not button then return nil end
 
-    button.buttonType = LAB.ButtonType.CUSTOM
+    button.buttonType = LTAB.ButtonType.CUSTOM
     button.buttonAction = id
     button.UpdateFunctions = updateFunctions
 
@@ -1402,7 +1402,7 @@ end
 -- BUTTON STYLING
 -----------------------------------
 
-function LAB:SetButtonSize(button, width, height)
+function LTAB:SetButtonSize(button, width, height)
     if not button then return end
 
     height = height or width
@@ -1451,7 +1451,7 @@ function LAB:SetButtonSize(button, width, height)
     button._height = height
 end
 
-function LAB:StyleButton(button, config)
+function LTAB:StyleButton(button, config)
     config = config or button.config or {}
 
     -- Icon cropping
@@ -1503,7 +1503,7 @@ function LAB:StyleButton(button, config)
     end
 end
 
-function LAB:ApplyTextConfig(button, textConfig)
+function LTAB:ApplyTextConfig(button, textConfig)
     -- Hotkey text
     if textConfig.hotkey and button._hotkey then
         local hk = textConfig.hotkey
@@ -1586,10 +1586,10 @@ end
     State "0" is the default/fallback state.
 
     Example:
-        LAB:SetState(button, 0, "action", 1)      -- Default: Action slot 1
-        LAB:SetState(button, 1, "spell", 133)     -- Stance 1: Fireball
-        LAB:SetState(button, 2, "item", 6948)     -- Stance 2: Hearthstone
-        LAB:UpdateState(button, 1)                 -- Switch to stance 1
+        LTAB:SetState(button, 0, "action", 1)      -- Default: Action slot 1
+        LTAB:SetState(button, 1, "spell", 133)     -- Stance 1: Fireball
+        LTAB:SetState(button, 2, "item", 6948)     -- Stance 2: Hearthstone
+        LTAB:UpdateState(button, 1)                 -- Switch to stance 1
 ]]
 
 --- Set the action for a specific state
@@ -1597,8 +1597,8 @@ end
 -- @param state The state identifier (0 = default)
 -- @param buttonType The button type for this state ("action", "spell", "item", "macro", "custom")
 -- @param action The action ID for this state
-function LAB:SetState(button, state, buttonType, action)
-    if not LAB.Validate.Button(button, "SetState") then return end
+function LTAB:SetState(button, state, buttonType, action)
+    if not LTAB.Validate.Button(button, "SetState") then return end
 
     state = tostring(state or 0)
 
@@ -1611,23 +1611,23 @@ function LAB:SetState(button, state, buttonType, action)
     end
 
     -- Store state type and action
-    button.stateTypes[state] = buttonType or LAB.ButtonType.EMPTY
+    button.stateTypes[state] = buttonType or LTAB.ButtonType.EMPTY
     button.stateActions[state] = action
 
     -- Set secure state attributes for proper click functionality
     if buttonType and action then
         -- Map button type to secure attribute type
         local secureType = buttonType
-        if buttonType == LAB.ButtonType.ACTION then
+        if buttonType == LTAB.ButtonType.ACTION then
             button:SetAttribute(string.format("*type-s%s", state), "action")
             button:SetAttribute(string.format("*action-s%s", state), action)
-        elseif buttonType == LAB.ButtonType.SPELL then
+        elseif buttonType == LTAB.ButtonType.SPELL then
             button:SetAttribute(string.format("*type-s%s", state), "spell")
             button:SetAttribute(string.format("*spell-s%s", state), action)
-        elseif buttonType == LAB.ButtonType.ITEM then
+        elseif buttonType == LTAB.ButtonType.ITEM then
             button:SetAttribute(string.format("*type-s%s", state), "item")
             button:SetAttribute(string.format("*item-s%s", state), action)
-        elseif buttonType == LAB.ButtonType.MACRO then
+        elseif buttonType == LTAB.ButtonType.MACRO then
             button:SetAttribute(string.format("*type-s%s", state), "macro")
             button:SetAttribute(string.format("*macro-s%s", state), action)
         end
@@ -1653,8 +1653,8 @@ end
 -- @param button The button to query
 -- @param state Optional state identifier. If nil, returns current state
 -- @return buttonType, action for the specified state, or just currentState if no state param
-function LAB:GetState(button, state)
-    if not LAB.Validate.Button(button, "GetState") then return nil end
+function LTAB:GetState(button, state)
+    if not LTAB.Validate.Button(button, "GetState") then return nil end
 
     if not state then
         -- Return current state
@@ -1672,8 +1672,8 @@ end
 --- Switch the button to a different state
 -- @param button The button to update
 -- @param newState The state to switch to (e.g., "1", "2")
-function LAB:UpdateState(button, newState)
-    if not LAB.Validate.Button(button, "UpdateState") then return end
+function LTAB:UpdateState(button, newState)
+    if not LTAB.Validate.Button(button, "UpdateState") then return end
 
     newState = tostring(newState or 0)
 
@@ -1696,7 +1696,7 @@ end
 --- Internal: Update button display based on current state
 -- This changes the button's type and action to match the current state
 -- @param button The button to update
-function LAB:UpdateButtonState(button)
+function LTAB:UpdateButtonState(button)
     if not button then return end
 
     local state = button.currentState or "0"
@@ -1723,43 +1723,43 @@ function LAB:UpdateButtonState(button)
     self:DebugPrint(string.format("  After clear: action=%s spellID=%s", tostring(button.action), tostring(button.spellID)))
 
     -- Update button type and action
-    button.buttonType = buttonType or LAB.ButtonType.EMPTY
+    button.buttonType = buttonType or LTAB.ButtonType.EMPTY
     button.buttonAction = action
 
     self:DebugPrint(string.format("  Set buttonAction=%s", tostring(button.buttonAction)))
 
     -- Update secure attributes for click handling and set type-specific properties
-    if buttonType == LAB.ButtonType.ACTION then
+    if buttonType == LTAB.ButtonType.ACTION then
         button:SetAttribute("type", "action")
         button:SetAttribute("action", action)
         button.action = action  -- ONLY set action property for ACTION type
-        button.UpdateFunctions = LAB.ActionTypeUpdateFunctions
+        button.UpdateFunctions = LTAB.ActionTypeUpdateFunctions
         self:DebugPrint(string.format("  Set ACTION: action=%s", tostring(button.action)))
 
         -- Phase 13 Feature #5: Auto-register with Blizzard's action UI system
         if button.config and button.config.actionButtonUI and self.WoWRetail then
             self:RegisterActionUI(button)
         end
-    elseif buttonType == LAB.ButtonType.SPELL then
+    elseif buttonType == LTAB.ButtonType.SPELL then
         button:SetAttribute("type", "spell")
         button:SetAttribute("spell", action)
         button.spellID = action  -- ONLY set spellID property for SPELL type
         -- Keep button.action = 0 (invalid) to prevent Blizzard's code from using it
-        button.UpdateFunctions = LAB.SpellTypeUpdateFunctions
+        button.UpdateFunctions = LTAB.SpellTypeUpdateFunctions
         self:DebugPrint(string.format("  Set SPELL: spellID=%s action=%s", tostring(button.spellID), tostring(button.action)))
-    elseif buttonType == LAB.ButtonType.ITEM then
+    elseif buttonType == LTAB.ButtonType.ITEM then
         button:SetAttribute("type", "item")
         button:SetAttribute("item", "item:" .. tostring(action))
         button.itemID = action  -- ONLY set itemID property for ITEM type
         -- Keep button.action = 0 (invalid) to prevent Blizzard's code from using it
-        button.UpdateFunctions = LAB.ItemTypeUpdateFunctions
+        button.UpdateFunctions = LTAB.ItemTypeUpdateFunctions
         self:DebugPrint(string.format("  Set ITEM: itemID=%s action=%s", tostring(button.itemID), tostring(button.action)))
-    elseif buttonType == LAB.ButtonType.MACRO then
+    elseif buttonType == LTAB.ButtonType.MACRO then
         button:SetAttribute("type", "macro")
         button:SetAttribute("macro", action)
         button.macroID = action  -- ONLY set macroID property for MACRO type
         -- Keep button.action = 0 (invalid) to prevent Blizzard's code from using it
-        button.UpdateFunctions = LAB.MacroTypeUpdateFunctions
+        button.UpdateFunctions = LTAB.MacroTypeUpdateFunctions
         self:DebugPrint(string.format("  Set MACRO: macroID=%s action=%s", tostring(button.macroID), tostring(button.action)))
     else
         -- Empty or unknown type
@@ -1781,8 +1781,8 @@ end
 -- @param button The button to query
 -- @param state Optional state identifier
 -- @return buttonType, action
-function LAB:GetAction(button, state)
-    if not button then return LAB.ButtonType.EMPTY, nil end
+function LTAB:GetAction(button, state)
+    if not button then return LTAB.ButtonType.EMPTY, nil end
 
     state = state or button.currentState or "0"
     state = tostring(state)
@@ -1797,7 +1797,7 @@ function LAB:GetAction(button, state)
         stateAction = button.stateActions and button.stateActions["0"]
     end
 
-    local finalType = stateType or button.buttonType or LAB.ButtonType.EMPTY
+    local finalType = stateType or button.buttonType or LTAB.ButtonType.EMPTY
     local finalAction = stateAction or button.buttonAction
 
     -- Final fallback to button's base type/action
@@ -1807,8 +1807,8 @@ end
 --- Clear all states for a button
 -- Resets the button to a single default state
 -- @param button The button to clear
-function LAB:ClearStates(button)
-    if not LAB.Validate.Button(button, "ClearStates") then return end
+function LTAB:ClearStates(button)
+    if not LTAB.Validate.Button(button, "ClearStates") then return end
 
     button.stateTypes = {}
     button.stateActions = {}
@@ -1831,8 +1831,8 @@ end
 --- Enable paging for a button (responds to page changes)
 -- @param button The button to configure
 -- @param enable Boolean to enable/disable paging
-function LAB:EnablePaging(button, enable)
-    if not LAB.Validate.Button(button, "EnablePaging") then return end
+function LTAB:EnablePaging(button, enable)
+    if not LTAB.Validate.Button(button, "EnablePaging") then return end
 
     button.usePaging = enable
 
@@ -1851,8 +1851,8 @@ end
 --- Enable stance-based state switching
 -- @param button The button to configure
 -- @param enable Boolean to enable/disable stance switching
-function LAB:EnableStanceState(button, enable)
-    if not LAB.Validate.Button(button, "EnableStanceState") then return end
+function LTAB:EnableStanceState(button, enable)
+    if not LTAB.Validate.Button(button, "EnableStanceState") then return end
 
     button.useStance = enable
 
@@ -1870,7 +1870,7 @@ end
 
 --- Event handling for state changes
 -- This should be called by TotalUI's action bar module when state-changing events occur
-function LAB:OnPageChanged(newPage)
+function LTAB:OnPageChanged(newPage)
     newPage = newPage or (GetActionBarPage and GetActionBarPage() or 1)
 
     self:DebugPrint("OnPageChanged: newPage=" .. tostring(newPage))
@@ -1884,7 +1884,7 @@ function LAB:OnPageChanged(newPage)
 end
 
 --- Event handling for stance/form changes
-function LAB:OnStanceChanged()
+function LTAB:OnStanceChanged()
     local stance = GetShapeshiftForm and GetShapeshiftForm() or 0
 
     self:DebugPrint("OnStanceChanged: stance=" .. tostring(stance))
@@ -1898,7 +1898,7 @@ function LAB:OnStanceChanged()
 end
 
 --- Event handling for bonus bar changes (possess, vehicle, etc.)
-function LAB:OnBonusBarChanged()
+function LTAB:OnBonusBarChanged()
     local bonusBar = GetBonusBarOffset and GetBonusBarOffset() or 0
 
     self:DebugPrint("OnBonusBarChanged: bonusBar=" .. tostring(bonusBar))
@@ -1915,7 +1915,7 @@ end
 -- BUTTON UPDATES
 -----------------------------------
 
-function LAB:UpdateButton(button)
+function LTAB:UpdateButton(button)
     if not button then return end
 
     self:UpdateAction(button)
@@ -1938,7 +1938,7 @@ function LAB:UpdateButton(button)
     self:FireCallback("OnButtonUpdate", button)
 end
 
-function LAB:UpdateAction(button)
+function LTAB:UpdateAction(button)
     local action = button.action
     if not action then return end
 
@@ -1974,15 +1974,15 @@ function LAB:UpdateAction(button)
 
     -- Update button tracking registries for optimization
     if hasAction then
-        LAB.activeButtons[button] = true
+        LTAB.activeButtons[button] = true
 
         -- Separate action buttons from non-action buttons for efficient event routing
         if button.buttonType == "action" then
-            LAB.actionButtons[button] = true
-            LAB.nonActionButtons[button] = nil
+            LTAB.actionButtons[button] = true
+            LTAB.nonActionButtons[button] = nil
         else
-            LAB.actionButtons[button] = nil
-            LAB.nonActionButtons[button] = true
+            LTAB.actionButtons[button] = nil
+            LTAB.nonActionButtons[button] = true
         end
 
         -- Action exists: ensure normal texture uses default appearance
@@ -1990,9 +1990,9 @@ function LAB:UpdateAction(button)
             button._normalTexture:SetVertexColor(1, 1, 1, 1)
         end
     else
-        LAB.activeButtons[button] = nil
-        LAB.actionButtons[button] = nil
-        LAB.nonActionButtons[button] = nil
+        LTAB.activeButtons[button] = nil
+        LTAB.actionButtons[button] = nil
+        LTAB.nonActionButtons[button] = nil
 
         -- No action: UpdateGrid will handle showing/hiding the grid
         if button._normalTexture then
@@ -2001,7 +2001,7 @@ function LAB:UpdateAction(button)
     end
 end
 
-function LAB:UpdateIcon(button)
+function LTAB:UpdateIcon(button)
     if not button or not button._icon then return end
 
     -- Use UpdateFunctions if available (Phase 2)
@@ -2028,7 +2028,7 @@ function LAB:UpdateIcon(button)
     end
 end
 
-function LAB:UpdateCount(button)
+function LTAB:UpdateCount(button)
     if not button then return end
 
     -- If _count doesn't exist, this is a critical error - log it
@@ -2089,11 +2089,11 @@ end
 
 --- Phase 4 Step 4.1: Create charge cooldown frame
 local function CreateChargeCooldownFrame(parent)
-    LAB.NumChargeCooldowns = LAB.NumChargeCooldowns + 1
+    LTAB.NumChargeCooldowns = LTAB.NumChargeCooldowns + 1
     local cooldown = CreateFrame("Cooldown",
-        "LABChargeCooldown" .. LAB.NumChargeCooldowns, parent, "CooldownFrameTemplate")
+        "LTABChargeCooldown" .. LTAB.NumChargeCooldowns, parent, "CooldownFrameTemplate")
 
-    -- Position relative to icon with small inset (matches LAB-1.0)
+    -- Position relative to icon with small inset (matches LTAB-1.0)
     cooldown:SetPoint("TOPLEFT", parent._icon, "TOPLEFT", 2, -2)
     cooldown:SetPoint("BOTTOMRIGHT", parent._icon, "BOTTOMRIGHT", -2, 2)
     cooldown:SetHideCountdownNumbers(true)
@@ -2128,7 +2128,7 @@ local function StartChargeCooldown(button, chargeStart, chargeDuration, chargeMo
 end
 
 --- Phase 4 Step 4.1: Enhanced cooldown update with charge support
-function LAB:UpdateCooldown(button)
+function LTAB:UpdateCooldown(button)
     if not button or not button._cooldown then return end
 
     local locStart, locDuration
@@ -2239,13 +2239,13 @@ end
 -----------------------------------
 
 --- Register spell overlay events (Retail only)
-function LAB:RegisterOverlayEvents()
+function LTAB:RegisterOverlayEvents()
     if not self.WoWRetail then return end
 
     if not self.overlayEventFrame then
         self.overlayEventFrame = CreateFrame("Frame")
         self.overlayEventFrame:SetScript("OnEvent", function(frame, event, ...)
-            LAB:OnOverlayEvent(event, ...)
+            LTAB:OnOverlayEvent(event, ...)
         end)
     end
 
@@ -2254,7 +2254,7 @@ function LAB:RegisterOverlayEvents()
 end
 
 --- Handle overlay events
-function LAB:OnOverlayEvent(event, spellID)
+function LTAB:OnOverlayEvent(event, spellID)
     if event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
         self:ShowOverlayGlowForSpell(spellID)
     elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
@@ -2263,7 +2263,7 @@ function LAB:OnOverlayEvent(event, spellID)
 end
 
 --- Show overlay glow for all buttons with this spell
-function LAB:ShowOverlayGlowForSpell(spellID)
+function LTAB:ShowOverlayGlowForSpell(spellID)
     -- buttons is a set where keys are button objects, values are true
     for button in pairs(self.buttons or {}) do
         if button and button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
@@ -2276,7 +2276,7 @@ function LAB:ShowOverlayGlowForSpell(spellID)
 end
 
 --- Hide overlay glow for all buttons with this spell
-function LAB:HideOverlayGlowForSpell(spellID)
+function LTAB:HideOverlayGlowForSpell(spellID)
     -- buttons is a set where keys are button objects, values are true
     for button in pairs(self.buttons or {}) do
         if button and button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
@@ -2289,7 +2289,7 @@ function LAB:HideOverlayGlowForSpell(spellID)
 end
 
 --- Show overlay glow on a button
-function LAB:ShowOverlayGlow(button)
+function LTAB:ShowOverlayGlow(button)
     if not self.WoWRetail then return end
     if not button then return end
 
@@ -2344,7 +2344,7 @@ function LAB:ShowOverlayGlow(button)
 end
 
 --- Hide overlay glow on a button
-function LAB:HideOverlayGlow(button)
+function LTAB:HideOverlayGlow(button)
     if button and button.overlay then
         button.overlay.animGroup:Stop()
         button.overlay:Hide()
@@ -2352,7 +2352,7 @@ function LAB:HideOverlayGlow(button)
 end
 
 --- Update overlay state for a button
-function LAB:UpdateSpellOverlay(button)
+function LTAB:UpdateSpellOverlay(button)
     if not self.WoWRetail then return end
     if not button or not button.UpdateFunctions then return end
 
@@ -2377,10 +2377,10 @@ function LAB:UpdateSpellOverlay(button)
     end
 end
 
---- Standalone overlay glow helper functions (matches LAB-1.0 API)
+--- Standalone overlay glow helper functions (matches LTAB-1.0 API)
 local IsSpellOverlayed = C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed or IsSpellOverlayed
 
-function LAB:UpdateOverlayGlow(button)
+function LTAB:UpdateOverlayGlow(button)
     if not button or not button.UpdateFunctions then return end
 
     local spellID = button.UpdateFunctions.GetSpellId and button.UpdateFunctions.GetSpellId(button)
@@ -2396,7 +2396,7 @@ end
 -----------------------------------
 
 --- Update new action highlight (Retail only)
-function LAB:UpdateNewActionHighlight(button)
+function LTAB:UpdateNewActionHighlight(button)
     if not self.WoWRetail then return end
     if not button or not button.UpdateFunctions then return end
     if not self.Compat.C_NewItems or not self.Compat.C_NewItems.IsNewItem then return end
@@ -2443,8 +2443,8 @@ function LAB:UpdateNewActionHighlight(button)
     end
 end
 
---- LAB-1.0 compatible alias
-function LAB:UpdateNewAction(button)
+--- LTAB-1.0 compatible alias
+function LTAB:UpdateNewAction(button)
     return self:UpdateNewActionHighlight(button)
 end
 
@@ -2452,7 +2452,7 @@ end
 -- BUTTON UPDATE HELPERS
 -----------------------------------
 
-function LAB:UpdateHotkey(button)
+function LTAB:UpdateHotkey(button)
     local action = button.action
     if not action or not button._hotkey then return end
 
@@ -2493,13 +2493,13 @@ function LAB:UpdateHotkey(button)
     end
 end
 
---- LAB-1.0 compatible alias
-function LAB:UpdateHotkeys(button)
+--- LTAB-1.0 compatible alias
+function LTAB:UpdateHotkeys(button)
     return self:UpdateHotkey(button)
 end
 
 --- Phase 4 Step 4.4: Update equipped item border and quality borders
-function LAB:UpdateEquippedBorder(button)
+function LTAB:UpdateEquippedBorder(button)
     if not button or not button._border then return end
 
     -- Don't override custom borders set via SetBorderTexture
@@ -2549,7 +2549,7 @@ end
 --- Set border texture/style (Feature 16: Border style/texture support)
 -- Pass nil for texture to clear custom border and return to automatic border behavior
 -- For solid textures, creates 4-edge border. For border textures, uses single overlay.
-function LAB:SetBorderTexture(button, texture, size, offset)
+function LTAB:SetBorderTexture(button, texture, size, offset)
     if not button then return end
 
     -- If texture is nil, clear custom border flag and return to automatic behavior
@@ -2697,7 +2697,7 @@ function LAB:SetBorderTexture(button, texture, size, offset)
 end
 
 --- Update frame levels for all button elements (Feature 23: Frame level management)
-function LAB:UpdateFrameLevels(button)
+function LTAB:UpdateFrameLevels(button)
     if not button then return end
 
     local baseLevel = button:GetFrameLevel()
@@ -2771,7 +2771,7 @@ function LAB:UpdateFrameLevels(button)
 end
 
 --- Show interrupt display (Feature 20: Interrupt display support)
-function LAB:ShowInterruptDisplay(button)
+function LTAB:ShowInterruptDisplay(button)
     if not button then return end
 
     -- Create interrupt display if it doesn't exist or if it's missing animGroup
@@ -2859,7 +2859,7 @@ function LAB:ShowInterruptDisplay(button)
 end
 
 --- Hide interrupt display
-function LAB:HideInterruptDisplay(button)
+function LTAB:HideInterruptDisplay(button)
     if button and button.InterruptDisplay then
         button.InterruptDisplay:SetAlpha(0)
     end
@@ -2869,7 +2869,7 @@ end
 local spellAlertFramePool = {}
 local activeSpellAlerts = {}
 
-function LAB:GetSpellAlertFrame()
+function LTAB:GetSpellAlertFrame()
     -- Try to get a frame from the pool
     for i, frame in ipairs(spellAlertFramePool) do
         if not frame:IsShown() then
@@ -2900,7 +2900,7 @@ function LAB:GetSpellAlertFrame()
     return frame
 end
 
-function LAB:ShowSpellAlert(button, spellID)
+function LTAB:ShowSpellAlert(button, spellID)
     if not self.WoWRetail or not button then return end
 
     local overlayData
@@ -2935,7 +2935,7 @@ function LAB:ShowSpellAlert(button, spellID)
     activeSpellAlerts[button] = frame
 end
 
-function LAB:HideSpellAlert(button)
+function LTAB:HideSpellAlert(button)
     local frame = activeSpellAlerts[button]
     if frame then
         frame:Hide()
@@ -2944,7 +2944,7 @@ function LAB:HideSpellAlert(button)
     end
 end
 
-function LAB:UpdateSpellActivationAlert(button)
+function LTAB:UpdateSpellActivationAlert(button)
     if not self.WoWRetail or not button or not button.UpdateFunctions then return end
 
     local spellID = button.UpdateFunctions.GetSpellId and button.UpdateFunctions.GetSpellId(button)
@@ -2968,7 +2968,7 @@ function LAB:UpdateSpellActivationAlert(button)
     end
 end
 
-function LAB:UpdateUsable(button)
+function LTAB:UpdateUsable(button)
     if not button or not button._icon then return end
 
     -- Update equipped border first (Phase 4 Step 4.4)
@@ -3057,7 +3057,7 @@ function LAB:UpdateUsable(button)
     end
 end
 
-function LAB:UpdateRange(button)
+function LTAB:UpdateRange(button)
     if not button or not button._icon then return end
 
     -- Initialize rangeTimer if not set (used for throttling)
@@ -3132,8 +3132,8 @@ function LAB:UpdateRange(button)
     -- nil means no range restriction
 end
 
---- Update range timer for throttled range checking (matches LAB-1.0)
-function LAB:UpdateRangeTimer(button, elapsed)
+--- Update range timer for throttled range checking (matches LTAB-1.0)
+function LTAB:UpdateRangeTimer(button, elapsed)
     if not button or not button.rangeTimer then return end
 
     -- Reset timer if button has no action
@@ -3151,7 +3151,7 @@ function LAB:UpdateRangeTimer(button, elapsed)
     end
 end
 
-function LAB:UpdateVisualState(button)
+function LTAB:UpdateVisualState(button)
     local action = button.action
     if not action then return end
 
@@ -3170,7 +3170,7 @@ function LAB:UpdateVisualState(button)
     end
 end
 
-function LAB:UpdateGrid(button)
+function LTAB:UpdateGrid(button)
     if not button then return end
 
     if button._state.hasAction then
@@ -3201,20 +3201,20 @@ end
 -- FLASH ANIMATION
 -----------------------------------
 
-function LAB:StartFlash(button)
+function LTAB:StartFlash(button)
     if not button._flash then return end
     button._isFlashing = true
     button._flashTime = 0
     button._flash:Show()
 end
 
-function LAB:StopFlash(button)
+function LTAB:StopFlash(button)
     if not button._flash then return end
     button._isFlashing = false
     button._flash:Hide()
 end
 
-function LAB:UpdateFlash(button, elapsed)
+function LTAB:UpdateFlash(button, elapsed)
     if not button._isFlashing or not button._flash then return end
 
     button._flashTime = (button._flashTime or 0) + elapsed
@@ -3226,7 +3226,7 @@ end
 -- BUTTON EVENTS
 -----------------------------------
 
-function LAB:OnButtonUpdate(button, elapsed)
+function LTAB:OnButtonUpdate(button, elapsed)
     -- Update range (frequent check)
     self:UpdateRange(button)
 
@@ -3237,7 +3237,7 @@ function LAB:OnButtonUpdate(button, elapsed)
 end
 
 --- Handle secure attribute changes (Feature 14: OnAttributeChanged handler)
-function LAB:OnAttributeChanged(button, name, value)
+function LTAB:OnAttributeChanged(button, name, value)
     if not button then return end
 
     -- Update button when certain attributes change
@@ -3300,7 +3300,7 @@ function LAB:OnAttributeChanged(button, name, value)
     end
 end
 
-function LAB:OnButtonEvent(button, event, ...)
+function LTAB:OnButtonEvent(button, event, ...)
     if event == "ACTIONBAR_SLOT_CHANGED" then
         local slot = ...
         if slot == 0 or slot == button.action then
@@ -3338,7 +3338,7 @@ function LAB:OnButtonEvent(button, event, ...)
     end
 end
 
-function LAB:OnButtonEnter(button)
+function LTAB:OnButtonEnter(button)
     -- Debug: show what we're seeing
     if self.debug then
         print(string.format("OnButtonEnter: type=%s action=%s spellID=%s itemID=%s macroID=%s",
@@ -3356,29 +3356,29 @@ function LAB:OnButtonEnter(button)
     local hasTooltip = false
 
     -- Set tooltip based on button type using type-specific properties
-    if button.buttonType == LAB.ButtonType.ACTION and button.action then
+    if button.buttonType == LTAB.ButtonType.ACTION and button.action then
         if self.debug then print(string.format("  -> Using ACTION tooltip with action=%s", tostring(button.action))) end
         hasTooltip = GameTooltip:SetAction(button.action)
         if self.debug then print(string.format("  -> SetAction returned: %s", tostring(hasTooltip))) end
-    elseif button.buttonType == LAB.ButtonType.SPELL and button.spellID then
+    elseif button.buttonType == LTAB.ButtonType.SPELL and button.spellID then
         if self.debug then print(string.format("  -> Using SPELL tooltip with spellID=%s", tostring(button.spellID))) end
         if self.debug then print(string.format("  -> GameTooltip owner before: %s", tostring(GameTooltip:GetOwner() and GameTooltip:GetOwner():GetName() or "nil"))) end
         hasTooltip = GameTooltip:SetSpellByID(button.spellID)
         if self.debug then print(string.format("  -> SetSpellByID returned: %s", tostring(hasTooltip))) end
         if self.debug then print(string.format("  -> GameTooltip owner after: %s", tostring(GameTooltip:GetOwner() and GameTooltip:GetOwner():GetName() or "nil"))) end
         if self.debug then print(string.format("  -> GameTooltip text: %s", tostring(_G["GameTooltipTextLeft1"] and _G["GameTooltipTextLeft1"]:GetText() or "nil"))) end
-    elseif button.buttonType == LAB.ButtonType.ITEM and button.itemID then
+    elseif button.buttonType == LTAB.ButtonType.ITEM and button.itemID then
         if self.debug then print(string.format("  -> Using ITEM tooltip with itemID=%s", tostring(button.itemID))) end
         hasTooltip = GameTooltip:SetItemByID(button.itemID)
         if self.debug then print(string.format("  -> SetItemByID returned: %s", tostring(hasTooltip))) end
-    elseif button.buttonType == LAB.ButtonType.MACRO and button.macroID then
+    elseif button.buttonType == LTAB.ButtonType.MACRO and button.macroID then
         if self.debug then print(string.format("  -> Using MACRO tooltip with macroID=%s", tostring(button.macroID))) end
         hasTooltip = GameTooltip:SetAction(button.macroID)
         if self.debug then print(string.format("  -> SetAction returned: %s", tostring(hasTooltip))) end
     end
 
     if hasTooltip then
-        button.UpdateTooltip = function() LAB:OnButtonEnter(button) end
+        button.UpdateTooltip = function() LTAB:OnButtonEnter(button) end
     else
         button.UpdateTooltip = nil
     end
@@ -3387,7 +3387,7 @@ function LAB:OnButtonEnter(button)
     self:FireCallback("OnButtonEnter", button)
 end
 
-function LAB:OnButtonLeave(button)
+function LTAB:OnButtonLeave(button)
     GameTooltip:Hide()
     button.UpdateTooltip = nil
 
@@ -3404,7 +3404,7 @@ end
 -----------------------------------
 
 --- Enable or disable drag and drop for a button
-function LAB:EnableDragNDrop(button, enable)
+function LTAB:EnableDragNDrop(button, enable)
     if not button then return end
 
     -- Store drag enabled state
@@ -3423,7 +3423,7 @@ function LAB:EnableDragNDrop(button, enable)
 end
 
 --- Handle drag start
-function LAB:OnDragStart(button)
+function LTAB:OnDragStart(button)
     if not button or not button._dragEnabled then return end
     if button._locked then return end  -- Respect lock state
     if InCombatLockdown() then return end  -- No drag in combat
@@ -3449,7 +3449,7 @@ function LAB:OnDragStart(button)
 end
 
 --- Handle receiving a drag
-function LAB:OnReceiveDrag(button)
+function LTAB:OnReceiveDrag(button)
     if not button or not button._dragEnabled then return end
     if button._locked then return end  -- Respect lock state
     if InCombatLockdown() then return end  -- No drag in combat
@@ -3463,7 +3463,7 @@ end
 -----------------------------------
 
 --- Set whether a button is locked (prevents drag/drop)
-function LAB:SetLocked(button, locked)
+function LTAB:SetLocked(button, locked)
     if not button then return end
     button._locked = locked
 
@@ -3478,13 +3478,13 @@ function LAB:SetLocked(button, locked)
 end
 
 --- Get whether a button is locked
-function LAB:GetLocked(button)
+function LTAB:GetLocked(button)
     if not button then return false end
     return button._locked or false
 end
 
 --- Create visual lock indicator (optional)
-function LAB:CreateLockIndicator(button)
+function LTAB:CreateLockIndicator(button)
     if not button or button._lockIndicator then return end
 
     button._lockIndicator = button:CreateTexture(nil, "OVERLAY")
@@ -3500,7 +3500,7 @@ end
 
 --- Set whether button responds to click-on-down vs click-on-up
 -- Uses WoW's secure 'useOnKeyDown' attribute which controls when actions execute
-function LAB:SetClickOnDown(button, clickOnDown)
+function LTAB:SetClickOnDown(button, clickOnDown)
     if not button then return end
     button._clickOnDown = clickOnDown
 
@@ -3526,13 +3526,13 @@ function LAB:SetClickOnDown(button, clickOnDown)
 end
 
 --- Get click behavior
-function LAB:GetClickOnDown(button)
+function LTAB:GetClickOnDown(button)
     if not button then return false end
     return button._clickOnDown or false
 end
 
 --- Set global click behavior for all buttons
-function LAB:SetGlobalClickOnDown(clickOnDown)
+function LTAB:SetGlobalClickOnDown(clickOnDown)
     self.globalClickOnDown = clickOnDown
     for _, button in ipairs(self.buttons) do
         self:SetClickOnDown(button, clickOnDown)
@@ -3544,7 +3544,7 @@ end
 -----------------------------------
 
 --- Pick up button's action to cursor
-function LAB:PickupButton(button)
+function LTAB:PickupButton(button)
     if not button then return end
     if InCombatLockdown() then return end  -- No pickup in combat
 
@@ -3569,7 +3569,7 @@ function LAB:PickupButton(button)
 end
 
 --- Place cursor contents onto button
-function LAB:PlaceOnButton(button)
+function LTAB:PlaceOnButton(button)
     if not button then return end
     if InCombatLockdown() then return end  -- No place in combat
 
@@ -3628,7 +3628,7 @@ function LAB:PlaceOnButton(button)
 end
 
 --- Clear a button's action
-function LAB:ClearButton(button)
+function LTAB:ClearButton(button)
     if not button then return end
     if InCombatLockdown() then return end  -- No clear in combat
 
@@ -3657,7 +3657,7 @@ end
 -- STEP 6.1: DEFAULT CONFIGURATION
 -----------------------------------
 
-LAB.DefaultConfig = {
+LTAB.DefaultConfig = {
     -- Visual elements
     showGrid = false,
     showCooldown = true,
@@ -3741,7 +3741,7 @@ LAB.DefaultConfig = {
 -----------------------------------
 
 --- Deep merge two tables (source into dest)
-function LAB:DeepMerge(dest, source)
+function LTAB:DeepMerge(dest, source)
     if type(dest) ~= "table" or type(source) ~= "table" then
         return source
     end
@@ -3758,7 +3758,7 @@ function LAB:DeepMerge(dest, source)
 end
 
 --- Create a deep copy of a table
-function LAB:DeepCopy(tbl)
+function LTAB:DeepCopy(tbl)
     if type(tbl) ~= "table" then
         return tbl
     end
@@ -3772,7 +3772,7 @@ function LAB:DeepCopy(tbl)
 end
 
 --- Update button configuration with deep merging
-function LAB:UpdateConfig(button, config)
+function LTAB:UpdateConfig(button, config)
     if not button then return end
 
     -- Deep copy default config
@@ -3791,7 +3791,7 @@ function LAB:UpdateConfig(button, config)
 end
 
 --- Apply configuration to button
-function LAB:ApplyConfig(button)
+function LTAB:ApplyConfig(button)
     if not button or not button.config then return end
 
     local config = button.config
@@ -3826,7 +3826,7 @@ function LAB:ApplyConfig(button)
 end
 
 --- Apply element visibility from config
-function LAB:ApplyElementVisibility(button, config)
+function LTAB:ApplyElementVisibility(button, config)
     if not button or not config then return end
 
     -- Apply show/hide for each element
@@ -3864,7 +3864,7 @@ function LAB:ApplyElementVisibility(button, config)
 end
 
 --- Apply text configuration
-function LAB:ApplyTextConfig(button, config)
+function LTAB:ApplyTextConfig(button, config)
     if not button or not config or not config.text then return end
 
     -- Apply hotkey text config
@@ -3945,7 +3945,7 @@ end
 -----------------------------------
 
 --- Show or hide the grid on empty buttons
-function LAB:SetShowGrid(button, show)
+function LTAB:SetShowGrid(button, show)
     if not button then return end
     button.config = button.config or {}
     button.config.showGrid = show
@@ -3954,7 +3954,7 @@ function LAB:SetShowGrid(button, show)
 end
 
 --- Show or hide cooldown displays
-function LAB:SetShowCooldown(button, show)
+function LTAB:SetShowCooldown(button, show)
     if not button or not button._cooldown then return end
     button.config = button.config or {}
     button.config.showCooldown = show
@@ -3967,7 +3967,7 @@ function LAB:SetShowCooldown(button, show)
 end
 
 --- Show or hide count text
-function LAB:SetShowCount(button, show)
+function LTAB:SetShowCount(button, show)
     if not button or not button._count then return end
     button.config = button.config or {}
     button.config.showCount = show
@@ -3981,7 +3981,7 @@ function LAB:SetShowCount(button, show)
 end
 
 --- Show or hide hotkey text
-function LAB:SetShowHotkey(button, show)
+function LTAB:SetShowHotkey(button, show)
     if not button or not button._hotkey then return end
     button.config = button.config or {}
     button.config.showHotkey = show
@@ -3995,7 +3995,7 @@ function LAB:SetShowHotkey(button, show)
 end
 
 --- Show or hide macro text
-function LAB:SetShowMacroText(button, show)
+function LTAB:SetShowMacroText(button, show)
     if not button or not button._name then return end
     button.config = button.config or {}
     button.config.showMacroText = show
@@ -4010,7 +4010,7 @@ end
 
 --- Set tooltip mode
 -- @param mode "enabled", "disabled", or "nocombat"
-function LAB:SetShowTooltip(button, mode)
+function LTAB:SetShowTooltip(button, mode)
     if not button then return end
     button.config = button.config or {}
     button.config.showTooltip = mode
@@ -4022,7 +4022,7 @@ end
 
 --- Set out of range coloring mode
 -- @param mode "button" or "hotkey"
-function LAB:SetOutOfRangeColoring(button, mode)
+function LTAB:SetOutOfRangeColoring(button, mode)
     if not button then return end
     button.config = button.config or {}
     button.config.outOfRangeColoring = mode
@@ -4031,7 +4031,7 @@ end
 
 --- Set out of mana coloring mode
 -- @param mode "button" or "hotkey"
-function LAB:SetOutOfManaColoring(button, mode)
+function LTAB:SetOutOfManaColoring(button, mode)
     if not button then return end
     button.config = button.config or {}
     button.config.outOfManaColoring = mode
@@ -4039,7 +4039,7 @@ function LAB:SetOutOfManaColoring(button, mode)
 end
 
 --- Set desaturation for unusable actions
-function LAB:SetDesaturateUnusable(button, desaturate)
+function LTAB:SetDesaturateUnusable(button, desaturate)
     if not button then return end
     button.config = button.config or {}
     button.config.desaturateUnusable = desaturate
@@ -4049,7 +4049,7 @@ end
 --- Set custom color for a specific state
 -- @param colorType "range", "power", "usable", or "unusable"
 -- @param r, g, b Color values 0-1
-function LAB:SetStateColor(button, colorType, r, g, b)
+function LTAB:SetStateColor(button, colorType, r, g, b)
     if not button then return end
     button.config = button.config or {}
     button.config.colors = button.config.colors or {}
@@ -4069,7 +4069,7 @@ end
 --- Set text justification
 -- @param element "hotkey", "count", or "macro"
 -- @param justifyH "LEFT", "CENTER", or "RIGHT"
-function LAB:SetTextJustifyH(button, element, justifyH)
+function LTAB:SetTextJustifyH(button, element, justifyH)
     if not button then return end
     button.config = button.config or {}
     button.config.text = button.config.text or {}
@@ -4090,7 +4090,7 @@ end
 -- @param font Font path
 -- @param size Font size
 -- @param flags Font flags ("OUTLINE", "THICKOUTLINE", "MONOCHROME", etc.)
-function LAB:SetTextFont(button, element, font, size, flags)
+function LTAB:SetTextFont(button, element, font, size, flags)
     if not button then return end
     button.config = button.config or {}
     button.config.text = button.config.text or {}
@@ -4111,7 +4111,7 @@ end
 --- Set text color
 -- @param element "hotkey", "count", or "macro"
 -- @param r, g, b, a Color values 0-1
-function LAB:SetTextColor(button, element, r, g, b, a)
+function LTAB:SetTextColor(button, element, r, g, b, a)
     if not button then return end
     button.config = button.config or {}
     button.config.text = button.config.text or {}
@@ -4133,7 +4133,7 @@ end
 -- @param relAnchor Relative anchor point
 -- @param offsetX X offset
 -- @param offsetY Y offset
-function LAB:SetTextPosition(button, element, anchor, relAnchor, offsetX, offsetY)
+function LTAB:SetTextPosition(button, element, anchor, relAnchor, offsetX, offsetY)
     if not button then return end
     button.config = button.config or {}
     button.config.text = button.config.text or {}
@@ -4168,29 +4168,29 @@ local CBH = LibStub and LibStub("CallbackHandler-1.0", true)
 
 if CBH then
     -- Initialize callbacks if CallbackHandler is available
-    -- This creates RegisterCallback, UnregisterCallback, and UnregisterAllCallbacks methods on LAB
-    LAB.callbacks = LAB.callbacks or CBH:New(LAB)
+    -- This creates RegisterCallback, UnregisterCallback, and UnregisterAllCallbacks methods on LTAB
+    LTAB.callbacks = LTAB.callbacks or CBH:New(LTAB)
 
     --- Fire a callback event
     -- @param event The event name
     -- @param ... Event arguments
-    function LAB:FireCallback(event, ...)
+    function LTAB:FireCallback(event, ...)
         if self.callbacks then
             self.callbacks:Fire(event, ...)
         end
     end
 else
     -- Fallback if CallbackHandler is not available
-    function LAB:FireCallback(event, ...)
+    function LTAB:FireCallback(event, ...)
         -- No-op if no callback handler
     end
 
     -- Create stub methods if CallbackHandler not available
-    function LAB:RegisterCallback(event, callback, arg)
+    function LTAB:RegisterCallback(event, callback, arg)
         -- No-op
     end
 
-    function LAB:UnregisterCallback(event, callback)
+    function LTAB:UnregisterCallback(event, callback)
         -- No-op
     end
 end
@@ -4202,10 +4202,10 @@ end
 -- Try to load Masque (or ButtonFacade for legacy support)
 local MSQ = LibStub and (LibStub("Masque", true) or LibStub("ButtonFacade", true))
 
-LAB.MasqueGroup = nil
+LTAB.MasqueGroup = nil
 
 --- Initialize Masque support
-function LAB:InitializeMasque()
+function LTAB:InitializeMasque()
     if not MSQ then return end
 
     -- Create a Masque group for LibTotalActionButtons
@@ -4216,7 +4216,7 @@ end
 
 --- Add button to Masque skinning
 -- @param button The button to skin
-function LAB:AddToMasque(button)
+function LTAB:AddToMasque(button)
     if not MSQ or not button then return end
 
     -- Initialize Masque if needed
@@ -4248,7 +4248,7 @@ end
 
 --- Remove button from Masque skinning
 -- @param button The button to unskin
-function LAB:RemoveFromMasque(button)
+function LTAB:RemoveFromMasque(button)
     if not MSQ or not button or not self.MasqueGroup then return end
 
     self.MasqueGroup:RemoveButton(button)
@@ -4257,7 +4257,7 @@ end
 
 --- Update Masque skin for a button
 -- @param button The button to update
-function LAB:UpdateMasqueSkin(button)
+function LTAB:UpdateMasqueSkin(button)
     if not button or not button._masqueSkinned then return end
 
     -- Re-add to refresh skin
@@ -4270,7 +4270,7 @@ end
 
 --- Enable LibKeyBound support for a button
 -- @param button The button to enable keybinding for
-function LAB:EnableKeyBound(button)
+function LTAB:EnableKeyBound(button)
     if not button then return end
 
     -- Try to load LibKeyBound (it might be Load on Demand)
@@ -4320,7 +4320,7 @@ function LAB:EnableKeyBound(button)
         end
 
         -- Update hotkey display
-        LAB:UpdateHotkey(self)
+        LTAB:UpdateHotkey(self)
     end
 
     -- Mark button as LibKeyBound enabled
@@ -4329,7 +4329,7 @@ end
 
 --- Disable LibKeyBound support for a button
 -- @param button The button to disable keybinding for
-function LAB:DisableKeyBound(button)
+function LTAB:DisableKeyBound(button)
     if not button then return end
 
     button.GetBindingAction = nil
@@ -4346,7 +4346,7 @@ end
 
 --- Register action button with Blizzard Action UI system (Retail only)
 -- @param button The button to register
-function LAB:RegisterActionUI(button)
+function LTAB:RegisterActionUI(button)
     if not button or not WoWRetail then return end
 
     -- Only register action-type buttons
@@ -4371,7 +4371,7 @@ end
 
 --- Unregister action button from Blizzard Action UI system (Retail only)
 -- @param button The button to unregister
-function LAB:UnregisterActionUI(button)
+function LTAB:UnregisterActionUI(button)
     if not button or not WoWRetail then return end
 
     -- Only unregister if it was registered
@@ -4399,71 +4399,71 @@ end
 
 -- Global event frame for all buttons (reduces per-button overhead)
 local EventFrame = CreateFrame("Frame")
-LAB.EventFrame = EventFrame
+LTAB.EventFrame = EventFrame
 
 -- Table to track which events need which updates
 local EventHandlers = {
     -- Action bar events
     ACTIONBAR_SLOT_CHANGED = function(self, slot)
-        for _, button in ipairs(LAB.activeButtons) do
+        for _, button in ipairs(LTAB.activeButtons) do
             if button.buttonType == "action" and button.action == slot then
-                LAB:UpdateButton(button)
+                LTAB:UpdateButton(button)
             end
         end
     end,
 
     ACTIONBAR_UPDATE_COOLDOWN = function(self)
-        for _, button in ipairs(LAB.activeButtons) do
+        for _, button in ipairs(LTAB.activeButtons) do
             if button.buttonType == "action" then
-                LAB:UpdateCooldown(button)
+                LTAB:UpdateCooldown(button)
             end
         end
     end,
 
     ACTIONBAR_UPDATE_USABLE = function(self)
-        for _, button in ipairs(LAB.activeButtons) do
-            LAB:UpdateUsable(button)
+        for _, button in ipairs(LTAB.activeButtons) do
+            LTAB:UpdateUsable(button)
         end
     end,
 
     -- Spell events
     SPELL_UPDATE_COOLDOWN = function(self)
-        for _, button in ipairs(LAB.activeButtons) do
+        for _, button in ipairs(LTAB.activeButtons) do
             if button.buttonType == "spell" then
-                LAB:UpdateCooldown(button)
+                LTAB:UpdateCooldown(button)
             end
         end
     end,
 
     SPELL_UPDATE_CHARGES = function(self)
-        for _, button in ipairs(LAB.activeButtons) do
+        for _, button in ipairs(LTAB.activeButtons) do
             if button.buttonType == "spell" and button.spellID then
-                LAB:UpdateCharges(button)
+                LTAB:UpdateCharges(button)
             end
         end
     end,
 
     SPELL_UPDATE_USABLE = function(self)
-        for _, button in ipairs(LAB.activeButtons) do
+        for _, button in ipairs(LTAB.activeButtons) do
             if button.buttonType == "spell" then
-                LAB:UpdateUsable(button)
+                LTAB:UpdateUsable(button)
             end
         end
     end,
 
     -- Item events
     BAG_UPDATE_COOLDOWN = function(self)
-        for _, button in ipairs(LAB.activeButtons) do
+        for _, button in ipairs(LTAB.activeButtons) do
             if button.buttonType == "item" then
-                LAB:UpdateCooldown(button)
+                LTAB:UpdateCooldown(button)
             end
         end
     end,
 
     ITEM_LOCK_CHANGED = function(self, bag, slot)
-        for _, button in ipairs(LAB.activeButtons) do
+        for _, button in ipairs(LTAB.activeButtons) do
             if button.buttonType == "item" then
-                LAB:UpdateButton(button)
+                LTAB:UpdateButton(button)
             end
         end
     end,
@@ -4471,9 +4471,9 @@ local EventHandlers = {
     -- Unit events
     UNIT_INVENTORY_CHANGED = function(self, unit)
         if unit == "player" then
-            for _, button in ipairs(LAB.activeButtons) do
+            for _, button in ipairs(LTAB.activeButtons) do
                 if button.buttonType == "item" then
-                    LAB:UpdateEquipped(button)
+                    LTAB:UpdateEquipped(button)
                 end
             end
         end
@@ -4485,8 +4485,8 @@ local EventHandlers = {
     end,
 
     PLAYER_ENTERING_WORLD = function(self)
-        for _, button in ipairs(LAB.buttons) do
-            LAB:UpdateButton(button)
+        for _, button in ipairs(LTAB.buttons) do
+            LTAB:UpdateButton(button)
         end
     end,
 }
@@ -4510,7 +4510,7 @@ end
 --- Execute a function for all buttons
 -- @param func Function to execute (receives button as first arg)
 -- @param ... Additional arguments to pass to function
-function LAB:ForAllButtons(func, ...)
+function LTAB:ForAllButtons(func, ...)
     if type(func) ~= "function" then return end
 
     -- self.buttons is a set where keys are button objects
@@ -4523,7 +4523,7 @@ end
 -- @param spellID The spell ID to match
 -- @param func Function to execute (receives button as first arg)
 -- @param ... Additional arguments to pass to function
-function LAB:ForAllButtonsWithSpell(spellID, func, ...)
+function LTAB:ForAllButtonsWithSpell(spellID, func, ...)
     if not spellID or type(func) ~= "function" then return end
 
     -- self.activeButtons is a set where keys are button objects
@@ -4538,7 +4538,7 @@ end
 -- @param itemID The item ID to match
 -- @param func Function to execute (receives button as first arg)
 -- @param ... Additional arguments to pass to function
-function LAB:ForAllButtonsWithItem(itemID, func, ...)
+function LTAB:ForAllButtonsWithItem(itemID, func, ...)
     if not itemID or type(func) ~= "function" then return end
 
     -- self.activeButtons is a set where keys are button objects
@@ -4553,7 +4553,7 @@ end
 -- @param actionID The action slot to match
 -- @param func Function to execute (receives button as first arg)
 -- @param ... Additional arguments to pass to function
-function LAB:ForAllButtonsWithAction(actionID, func, ...)
+function LTAB:ForAllButtonsWithAction(actionID, func, ...)
     if not actionID or type(func) ~= "function" then return end
 
     -- self.activeButtons is a set where keys are button objects
@@ -4579,8 +4579,8 @@ EventFrame:SetScript("OnUpdate", function(self, elapsed)
         rangeUpdateTimer = 0
 
         -- Update range for all active buttons
-        for _, button in ipairs(LAB.activeButtons) do
-            LAB:UpdateRange(button)
+        for _, button in ipairs(LTAB.activeButtons) do
+            LTAB:UpdateRange(button)
         end
     end
 end)
@@ -4589,12 +4589,12 @@ end)
 -- STEP 8.4: ACTIVE BUTTON TRACKING
 -----------------------------------
 
--- Active buttons are already tracked in LAB.activeButtons table (created in Phase 1)
+-- Active buttons are already tracked in LTAB.activeButtons table (created in Phase 1)
 -- This was initialized at the top of the file
 
 --- Add button to active tracking (called when button gets content)
 -- @param button The button to track as active
-function LAB:TrackActiveButton(button)
+function LTAB:TrackActiveButton(button)
     if not button then return end
 
     -- activeButtons is a set where keys are button objects
@@ -4603,7 +4603,7 @@ end
 
 --- Remove button from active tracking (called when button is cleared)
 -- @param button The button to remove from active tracking
-function LAB:UntrackActiveButton(button)
+function LTAB:UntrackActiveButton(button)
     if not button then return end
 
     -- activeButtons is a set where keys are button objects
@@ -4613,7 +4613,7 @@ end
 --- Check if button has content (action, spell, item, macro, or custom)
 -- @param button The button to check
 -- @return boolean True if button has content
-function LAB:ButtonHasContent(button)
+function LTAB:ButtonHasContent(button)
     if not button then return false end
 
     local buttonType = button.buttonType
@@ -4640,7 +4640,7 @@ end
 
 --- Lazily create charge cooldown frame when needed
 -- @param button The button to create charge cooldown for
-function LAB:EnsureChargeCooldown(button)
+function LTAB:EnsureChargeCooldown(button)
     if not button then return nil end
     if button.chargeCooldown then return button.chargeCooldown end
 
@@ -4664,7 +4664,7 @@ end
 
 --- Lazily create overlay glow when needed
 -- @param button The button to create overlay for
-function LAB:EnsureOverlay(button)
+function LTAB:EnsureOverlay(button)
     if not button then return nil end
     if button._overlay then return button._overlay end
 
@@ -4685,11 +4685,11 @@ end
 -----------------------------------
 
 -- Grid counter for tracking show/hide requests
-LAB.gridCounter = 0
+LTAB.gridCounter = 0
 
 --- Show grid on all empty buttons
 -- Increments counter to support multiple callers
-function LAB:ShowGrid()
+function LTAB:ShowGrid()
     self.gridCounter = self.gridCounter + 1
 
     self:DebugPrint("ShowGrid called, counter: " .. self.gridCounter)
@@ -4711,7 +4711,7 @@ end
 
 --- Hide grid on all empty buttons
 -- Decrements counter, only hides when counter reaches 0
-function LAB:HideGrid()
+function LTAB:HideGrid()
     if self.gridCounter > 0 then
         self.gridCounter = self.gridCounter - 1
     end
@@ -4733,7 +4733,7 @@ end
 --- Force show grid on specific button
 -- @param button The button to show grid on
 -- @param show boolean Whether to show or hide grid
-function LAB:SetShowGrid(button, show)
+function LTAB:SetShowGrid(button, show)
     if not button or not button._normalTexture then return end
 
     button._showGrid = show
@@ -4757,7 +4757,7 @@ end
 --- Set tooltip mode for button
 -- @param button The button
 -- @param mode string "enabled", "disabled", or "nocombat"
-function LAB:SetTooltipMode(button, mode)
+function LTAB:SetTooltipMode(button, mode)
     if not button then return end
 
     button._tooltipMode = mode or "enabled"
@@ -4768,7 +4768,7 @@ end
 --- Check if tooltip should be shown
 -- @param button The button
 -- @return boolean Whether tooltip should be shown
-function LAB:ShouldShowTooltip(button)
+function LTAB:ShouldShowTooltip(button)
     if not button then return false end
 
     local mode = button._tooltipMode or "enabled"
@@ -4783,7 +4783,7 @@ function LAB:ShouldShowTooltip(button)
 end
 
 --- Enhanced OnEnter handler for tooltips
-function LAB:OnButtonEnter(button)
+function LTAB:OnButtonEnter(button)
     if not button then return end
 
     -- Fire callback
@@ -4816,7 +4816,7 @@ function LAB:OnButtonEnter(button)
 end
 
 --- Enhanced OnLeave handler for tooltips
-function LAB:OnButtonLeave(button)
+function LTAB:OnButtonLeave(button)
     if not button then return end
 
     -- Fire callback
@@ -4837,7 +4837,7 @@ end
 
 --- Initialize spell cast animation frame for button
 -- @param button The button
-function LAB:InitSpellCastAnimFrame(button)
+function LTAB:InitSpellCastAnimFrame(button)
     if not button or not self.WoWRetail then return end
 
     -- SpellCastAnimFrame is part of ActionBarButtonTemplate
@@ -4850,7 +4850,7 @@ end
 
 --- Show spell cast animation
 -- @param button The button
-function LAB:ShowSpellCastAnim(button)
+function LTAB:ShowSpellCastAnim(button)
     if not button or not self.WoWRetail or not button._spellCastAnim then return end
 
     if button._spellCastAnim.Show then
@@ -4861,7 +4861,7 @@ end
 
 --- Hide spell cast animation
 -- @param button The button
-function LAB:HideSpellCastAnim(button)
+function LTAB:HideSpellCastAnim(button)
     if not button or not self.WoWRetail or not button._spellCastAnim then return end
 
     if button._spellCastAnim.Hide then
@@ -4874,14 +4874,14 @@ end
 -----------------------------------
 
 -- Flyout button pool for reuse
-LAB.flyoutButtons = {}
-LAB.flyoutButtonPool = {}
+LTAB.flyoutButtons = {}
+LTAB.flyoutButtonPool = {}
 
 --- Create a flyout button
 -- @param parent The parent button
 -- @param index The index in the flyout
 -- @return button The flyout button
-function LAB:CreateFlyoutButton(parent, index)
+function LTAB:CreateFlyoutButton(parent, index)
     local name = parent:GetName() .. "Flyout" .. index
 
     -- Don't use ActionBarButtonTemplate - it conflicts with Blizzard's action bar code
@@ -4937,7 +4937,7 @@ function LAB:CreateFlyoutButton(parent, index)
     -- Store reference
     button._flyoutParent = parent
     button._flyoutIndex = index
-    button.buttonType = LAB.ButtonType.ACTION
+    button.buttonType = LTAB.ButtonType.ACTION
 
     -- Unregister from all Blizzard template events
     button:UnregisterAllEvents()
@@ -4945,7 +4945,7 @@ function LAB:CreateFlyoutButton(parent, index)
     -- Override Blizzard's OnEvent to use our event handling
     -- This prevents Blizzard's ActionButton code from running which expects action slots
     button:SetScript("OnEvent", function(self, event, ...)
-        LAB:OnButtonEvent(self, event, ...)
+        LTAB:OnButtonEvent(self, event, ...)
     end)
 
     -- Register for our events
@@ -4961,7 +4961,7 @@ end
 
 --- Release flyout button (hide and clean up)
 -- @param button The flyout button to release
-function LAB:ReleaseFlyoutButton(button)
+function LTAB:ReleaseFlyoutButton(button)
     if not button then return end
 
     button:Hide()
@@ -4977,7 +4977,7 @@ end
 --- Get flyout info for action
 -- @param actionID The action ID
 -- @return boolean, numSlots, direction Whether action is flyout, number of slots, direction
-function LAB:GetFlyoutInfo(actionID)
+function LTAB:GetFlyoutInfo(actionID)
     if not actionID or actionID == 0 then return false, 0, nil end
 
     -- Check if action is a flyout
@@ -4995,7 +4995,7 @@ end
 
 --- Show flyout for button
 -- @param button The button
-function LAB:ShowFlyout(button)
+function LTAB:ShowFlyout(button)
     if not button or not button.buttonType == "action" or not button.action then return end
 
     local isFlyout, numSlots, direction = self:GetFlyoutInfo(button.action)
@@ -5023,9 +5023,9 @@ function LAB:ShowFlyout(button)
 
                 if spellID and isKnown then
                     -- Set up flyout button as a spell button
-                    flyoutButton.buttonType = LAB.ButtonType.SPELL
+                    flyoutButton.buttonType = LTAB.ButtonType.SPELL
                     flyoutButton.buttonAction = spellID
-                    flyoutButton.UpdateFunctions = LAB.SpellTypeUpdateFunctions
+                    flyoutButton.UpdateFunctions = LTAB.SpellTypeUpdateFunctions
                     flyoutButton.action = nil  -- Clear action slot reference
                     flyoutButton:SetAttribute("type", "spell")
                     flyoutButton:SetAttribute("spell", spellID)
@@ -5076,7 +5076,7 @@ end
 
 --- Hide flyout for button
 -- @param button The button
-function LAB:HideFlyout(button)
+function LTAB:HideFlyout(button)
     if not button or not button._flyoutButtons then return end
 
     for _, flyoutButton in ipairs(button._flyoutButtons) do
@@ -5097,7 +5097,7 @@ end
 -- @param index The flyout index
 -- @param numSlots Total number of flyout slots
 -- @param direction The flyout direction (UP/DOWN/LEFT/RIGHT)
-function LAB:PositionFlyoutButton(parent, flyoutButton, index, numSlots, direction)
+function LTAB:PositionFlyoutButton(parent, flyoutButton, index, numSlots, direction)
     if not parent or not flyoutButton then return end
 
     local size = parent:GetWidth()
@@ -5121,7 +5121,7 @@ end
 -- UTILITY
 -----------------------------------
 
-function LAB:GetButton(id)
+function LTAB:GetButton(id)
     for _, button in ipairs(self.buttons) do
         if button.id == id then
             return button
@@ -5130,7 +5130,7 @@ function LAB:GetButton(id)
     return nil
 end
 
-function LAB:UpdateAllButtons()
+function LTAB:UpdateAllButtons()
     for _, button in ipairs(self.buttons) do
         self:UpdateButton(button)
     end
@@ -5155,14 +5155,14 @@ end
 --- Get all registered buttons (returns iterator)
 -- @return iterator function for all buttons
 -- Phase 11 Item 1
-function LAB:GetAllButtons()
+function LTAB:GetAllButtons()
     return pairs(self.buttons)
 end
 
 --- Update state on all buttons
 -- @param newState The new state to apply to all buttons
 -- Phase 11 Item 2
-function LAB:UpdateAllStates(newState)
+function LTAB:UpdateAllStates(newState)
     if not newState then return end
 
     for button in pairs(self.buttons) do
@@ -5175,7 +5175,7 @@ end
 --- Update button tooltip display
 -- @param button The button to update tooltip for
 -- Phase 11 Item 3
-function LAB:UpdateTooltip(button)
+function LTAB:UpdateTooltip(button)
     if not button then return end
 
     -- Check tooltip config and update button's tooltip mode
@@ -5201,7 +5201,7 @@ end
 --- Local update - updates visual state only without full action lookup
 -- @param button The button to update
 -- Phase 11 Item 4
-function LAB:UpdateLocal(button)
+function LTAB:UpdateLocal(button)
     if not button then return end
 
     -- Update only visual states, don't do expensive action lookups
@@ -5214,7 +5214,7 @@ end
 --- Update button alpha transparency
 -- @param button The button to update
 -- Phase 11 Item 5
-function LAB:UpdateAlpha(button)
+function LTAB:UpdateAlpha(button)
     if not button then return end
 
     local alpha = 1.0 -- default
@@ -5235,15 +5235,15 @@ function LAB:UpdateAlpha(button)
     button:SetAlpha(alpha)
 end
 
---- Global table tracking new action highlights (matches LAB-1.0)
-LAB.ACTION_HIGHLIGHT_MARKS = LAB.ACTION_HIGHLIGHT_MARKS or setmetatable({}, { __index = ACTION_HIGHLIGHT_MARKS or {} })
+--- Global table tracking new action highlights (matches LTAB-1.0)
+LTAB.ACTION_HIGHLIGHT_MARKS = LTAB.ACTION_HIGHLIGHT_MARKS or setmetatable({}, { __index = ACTION_HIGHLIGHT_MARKS or {} })
 
 --- Clear new action highlight from specific action(s)
 -- @param action The action ID to clear highlight from
 -- @param preventIdenticalActionsFromClearing Don't clear from identical actions
 -- @param value The mark value (optional)
 -- Phase 11 Item 6
-function LAB:ClearNewActionHighlight(action, preventIdenticalActionsFromClearing, value)
+function LTAB:ClearNewActionHighlight(action, preventIdenticalActionsFromClearing, value)
     if not action then return end
 
     -- Clear from ACTION_HIGHLIGHT_MARKS
@@ -5269,7 +5269,7 @@ end
 --- Update cooldown number visibility
 -- @param button The button to update
 -- Phase 11 Item 7
-function LAB:UpdateCooldownNumberHidden(button)
+function LTAB:UpdateCooldownNumberHidden(button)
     if not button or not button._cooldown then return end
 
     local hideNumbers = false
@@ -5304,7 +5304,7 @@ end
 -- @param buttonType The button type (optional)
 -- @param action The action value (optional)
 -- Phase 11 Item 10 (implemented inline in UpdateAction and SetState)
-function LAB:ButtonContentsChanged(button, state, buttonType, action)
+function LTAB:ButtonContentsChanged(button, state, buttonType, action)
     if not button then return end
 
     self:FireCallback("OnButtonContentsChanged", button, state or button._currentState, buttonType or button.buttonType, action or button.buttonAction)
@@ -5318,7 +5318,7 @@ end
 -- @return table of key binding strings
 -- Phase 11 Item 8
 -- Note: This is set up in EnableKeyBound, adding standalone method here
-function LAB:GetAllBindings(button)
+function LTAB:GetAllBindings(button)
     if not button or not button.action then return {} end
 
     local bindings = {}
@@ -5335,7 +5335,7 @@ end
 
 --- Clear all key bindings for a button (button instance method)
 -- Phase 11 Item 9
-function LAB:ClearAllBindings(button)
+function LTAB:ClearAllBindings(button)
     if not button or not button.action then return end
 
     local bindings = self:GetAllBindings(button)
@@ -5361,7 +5361,7 @@ end
 --- Update spell highlight animation (proc glows)
 -- @param button The button to update
 -- Phase 11 Item 12
-function LAB:UpdateSpellHighlight(button)
+function LTAB:UpdateSpellHighlight(button)
     if not self.WoWRetail or not button then return end
 
     -- Check if button has SpellHighlightAnim (from template)
@@ -5392,7 +5392,7 @@ end
 --- Update assisted combat rotation frame (Retail only)
 -- @param button The button to update
 -- Phase 11 Item 13
-function LAB:UpdateAssistedCombatRotationFrame(button)
+function LTAB:UpdateAssistedCombatRotationFrame(button)
     if not self.WoWRetail or not button then return end
 
     -- Check if feature is enabled in config
@@ -5441,7 +5441,7 @@ end
 --- Update assisted combat highlight frame (Retail only)
 -- @param button The button to update
 -- Phase 11 Item 14
-function LAB:UpdatedAssistedHighlightFrame(button)
+function LTAB:UpdatedAssistedHighlightFrame(button)
     if not self.WoWRetail or not button then return end
 
     -- Check if feature is enabled in config
@@ -5506,7 +5506,7 @@ end
 --- Clear targeting reticle animation
 -- @param button The button to clear reticle from
 -- Phase 11 Item 15
-function LAB:SpellVFX_ClearReticle(button)
+function LTAB:SpellVFX_ClearReticle(button)
     if not self.WoWRetail or not button then return end
 
     if button.SpellReticleTargetIndicator then
@@ -5517,7 +5517,7 @@ end
 --- Clear interrupt display (alias to existing method)
 -- @param button The button to clear interrupt from
 -- Phase 11 Item 16
-function LAB:SpellVFX_ClearInterruptDisplay(button)
+function LTAB:SpellVFX_ClearInterruptDisplay(button)
     -- This is an alias to our existing HideInterruptDisplay method
     self:HideInterruptDisplay(button)
 end
@@ -5525,7 +5525,7 @@ end
 --- Play spell cast animation
 -- @param button The button to play animation on
 -- Phase 11 Item 17
-function LAB:SpellVFX_PlaySpellCastAnim(button)
+function LTAB:SpellVFX_PlaySpellCastAnim(button)
     if not self.WoWRetail or not button then return end
 
     -- Check if VFX is enabled
@@ -5542,7 +5542,7 @@ end
 --- Play targeting reticle animation
 -- @param button The button to play reticle on
 -- Phase 11 Item 18
-function LAB:SpellVFX_PlayTargettingReticleAnim(button)
+function LTAB:SpellVFX_PlayTargettingReticleAnim(button)
     if not self.WoWRetail or not button then return end
 
     -- Check if VFX is enabled
@@ -5559,7 +5559,7 @@ end
 --- Stop targeting reticle animation
 -- @param button The button to stop reticle on
 -- Phase 11 Item 19
-function LAB:SpellVFX_StopTargettingReticleAnim(button)
+function LTAB:SpellVFX_StopTargettingReticleAnim(button)
     if not self.WoWRetail or not button then return end
 
     if button.SpellReticleTargetIndicator then
@@ -5573,7 +5573,7 @@ end
 --- Stop spell cast animation
 -- @param button The button to stop animation on
 -- Phase 11 Item 20
-function LAB:SpellVFX_StopSpellCastAnim(button)
+function LTAB:SpellVFX_StopSpellCastAnim(button)
     if not self.WoWRetail or not button then return end
 
     if button.SpellCastAnimFrame then
@@ -5587,7 +5587,7 @@ end
 --- Play spell interrupted animation
 -- @param button The button to play interrupt on
 -- Phase 11 Item 21
-function LAB:SpellVFX_PlaySpellInterruptedAnim(button)
+function LTAB:SpellVFX_PlaySpellInterruptedAnim(button)
     if not self.WoWRetail or not button then return end
 
     -- Check if VFX is enabled
@@ -5605,7 +5605,7 @@ end
 -- @param button The button to skin
 -- @param group The ButtonFacade group
 -- Phase 11 Item 22
-function LAB:AddToButtonFacade(button, group)
+function LTAB:AddToButtonFacade(button, group)
     if not button then return end
 
     -- Try to get ButtonFacade library
@@ -5638,14 +5638,14 @@ end
 --- Get the spell flyout frame reference
 -- @return The flyout frame or nil
 -- Phase 11 Item 23
-function LAB:GetSpellFlyoutFrame()
+function LTAB:GetSpellFlyoutFrame()
     return self.flyoutFrame or nil
 end
 
 --- Update flyout display when contents change
 -- @param button The button to update flyout for
 -- Phase 11 Item 24
-function LAB:UpdateFlyout(button)
+function LTAB:UpdateFlyout(button)
     if not button then return end
 
     -- Check if button has a flyout
@@ -5694,12 +5694,12 @@ function LAB:UpdateFlyout(button)
 end
 
 -- Initialize FlyoutInfo registry (Phase 11 Item 25)
-LAB.FlyoutInfo = LAB.FlyoutInfo or {}
+LTAB.FlyoutInfo = LTAB.FlyoutInfo or {}
 
 --- Discover and cache flyout spell information
 -- @param flyoutID The flyout ID to discover
 -- Phase 11 Item 25
-function LAB:DiscoverFlyoutInfo(flyoutID)
+function LTAB:DiscoverFlyoutInfo(flyoutID)
     if not flyoutID or not GetFlyoutInfo then return end
 
     local name, description, numSlots, isKnown = GetFlyoutInfo(flyoutID)
@@ -5772,7 +5772,7 @@ end
 -- @param button The button to reposition
 -- @param ... SetPoint arguments (point, relativeTo, relativePoint, x, y)
 -- Phase 12 Item 1
-function LAB:ClearSetPoint(button, ...)
+function LTAB:ClearSetPoint(button, ...)
     if not button then return end
 
     button:ClearAllPoints()
@@ -5786,7 +5786,7 @@ end
 -- @param kind The button type (action, spell, item, macro, custom, empty)
 -- @param action The action value (actionID, spellID, itemID, macroID, or custom data)
 -- Phase 12 Item 2
-function LAB:SetStateFromHandlerInsecure(button, state, kind, action)
+function LTAB:SetStateFromHandlerInsecure(button, state, kind, action)
     if not button then return end
 
     state = tostring(state or "0")
@@ -5862,7 +5862,7 @@ end
 -- @param button The button to reassign
 -- @param header The new secure header parent
 -- Phase 12 Item 3
-function LAB:NewHeader(button, header)
+function LTAB:NewHeader(button, header)
     if not button or not header then
         self:Error("NewHeader: button and header are required", 2)
         return
@@ -5896,7 +5896,7 @@ end
 -- This enables state switching, drag & drop, and updates during combat
 -- @param button The button to set up secure snippets for
 -- Phase 12 Item 4
-function LAB:SetupSecureSnippets(button)
+function LTAB:SetupSecureSnippets(button)
     if not button or not button.header then
         self:Error("SetupSecureSnippets: button with secure header required", 2)
         return
@@ -5984,7 +5984,7 @@ function LAB:SetupSecureSnippets(button)
 
     -- Secure OnDragStart - handles drag during combat
     button:SetAttribute("OnDragStart", [[
-        if (self:GetAttribute("buttonlock") and not IsModifiedClick("PICKUPACTION")) or self:GetAttribute("LABdisableDragNDrop") then
+        if (self:GetAttribute("buttonlock") and not IsModifiedClick("PICKUPACTION")) or self:GetAttribute("LTABdisableDragNDrop") then
             return false
         end
 
@@ -6014,7 +6014,7 @@ function LAB:SetupSecureSnippets(button)
 
     -- Secure OnReceiveDrag - handles drop during combat
     button:SetAttribute("OnReceiveDrag", [[
-        if self:GetAttribute("LABdisableDragNDrop") then
+        if self:GetAttribute("LTABdisableDragNDrop") then
             return false
         end
 
@@ -6092,7 +6092,7 @@ end
 -- @param button The button to wrap OnClick for
 -- @param unwrapheader Optional old header to unwrap from
 -- Phase 12 Item 5
-function LAB:WrapOnClick(button, unwrapheader)
+function LTAB:WrapOnClick(button, unwrapheader)
     if not button or not button.header then
         self:Error("WrapOnClick: button with secure header required", 2)
         return
@@ -6120,7 +6120,7 @@ function LAB:WrapOnClick(button, unwrapheader)
             local type, action = GetActionInfo(self:GetAttribute("action"))
 
             -- Handle flyout actions
-            if type == "flyout" and self:GetAttribute("LABUseCustomFlyout") then
+            if type == "flyout" and self:GetAttribute("LTABUseCustomFlyout") then
                 local flyoutHandler = owner:GetFrameRef("flyoutHandler")
                 if not down and flyoutHandler then
                     flyoutHandler:SetAttribute("flyoutParentHandle", self)
@@ -6138,11 +6138,11 @@ function LAB:WrapOnClick(button, unwrapheader)
             end
 
             -- Handle pickup clicks - disable on-down to prevent accidental casts
-            if button ~= "Keybind" and ((self:GetAttribute("unlockedpreventdrag") and not self:GetAttribute("buttonlock")) or IsModifiedClick("PICKUPACTION")) and not self:GetAttribute("LABdisableDragNDrop") then
+            if button ~= "Keybind" and ((self:GetAttribute("unlockedpreventdrag") and not self:GetAttribute("buttonlock")) or IsModifiedClick("PICKUPACTION")) and not self:GetAttribute("LTABdisableDragNDrop") then
                 local useOnkeyDown = self:GetAttribute("useOnKeyDown")
                 if useOnkeyDown ~= false then
-                    self:SetAttribute("LABToggledOnDown", true)
-                    self:SetAttribute("LABToggledOnDownBackup", useOnkeyDown)
+                    self:SetAttribute("LTABToggledOnDown", true)
+                    self:SetAttribute("LTABToggledOnDownBackup", useOnkeyDown)
                     self:SetAttribute("useOnKeyDown", false)
                 end
             end
@@ -6167,11 +6167,11 @@ function LAB:WrapOnClick(button, unwrapheader)
         end
 
         -- Restore on-down if we toggled it
-        local toggledOnDown = self:GetAttribute("LABToggledOnDown")
+        local toggledOnDown = self:GetAttribute("LTABToggledOnDown")
         if toggledOnDown then
-            self:SetAttribute("LABToggledOnDown", nil)
-            self:SetAttribute("useOnKeyDown", self:GetAttribute("LABToggledOnDownBackup"))
-            self:SetAttribute("LABToggledOnDownBackup", nil)
+            self:SetAttribute("LTABToggledOnDown", nil)
+            self:SetAttribute("useOnKeyDown", self:GetAttribute("LTABToggledOnDownBackup"))
+            self:SetAttribute("LTABToggledOnDownBackup", nil)
         end
     ]])
 
@@ -6180,7 +6180,7 @@ end
 
 --- Initialize secure flyout handler for combat-safe flyouts
 -- Phase 12 Item 6
-function LAB:InitializeSecureFlyoutHandler()
+function LTAB:InitializeSecureFlyoutHandler()
     if self.flyoutHandler then
         return -- Already initialized
     end
@@ -6193,7 +6193,7 @@ function LAB:InitializeSecureFlyoutHandler()
     end
 
     -- Create secure flyout handler frame
-    self.flyoutHandler = CreateFrame("Frame", "LABFlyoutHandlerFrame", UIParent, "SecureHandlerBaseTemplate")
+    self.flyoutHandler = CreateFrame("Frame", "LTABFlyoutHandlerFrame", UIParent, "SecureHandlerBaseTemplate")
     self.flyoutHandler:Hide()
 
     -- Create background
@@ -6217,7 +6217,7 @@ function LAB:InitializeSecureFlyoutHandler()
     -- Set up secure flyout handling snippet
     self.flyoutHandler:SetAttribute("HandleFlyout", [[
         local flyoutID = ...
-        local info = LAB_FlyoutInfo[flyoutID]
+        local info = LTAB_FlyoutInfo[flyoutID]
 
         if not info then
             print("LibTotalActionButtons: Flyout missing with ID " .. flyoutID)
@@ -6289,7 +6289,7 @@ function LAB:InitializeSecureFlyoutHandler()
     if not self.flyoutEventFrame then
         self.flyoutEventFrame = CreateFrame("Frame")
         self.flyoutEventFrame:SetScript("OnEvent", function(frame, event, ...)
-            LAB:OnFlyoutEvent(event, ...)
+            LTAB:OnFlyoutEvent(event, ...)
         end)
     end
 
@@ -6303,7 +6303,7 @@ function LAB:InitializeSecureFlyoutHandler()
 end
 
 -- Phase 13 Feature #6: Handle flyout update events
-function LAB:OnFlyoutEvent(event, ...)
+function LTAB:OnFlyoutEvent(event, ...)
     if InCombatLockdown() then
         -- Queue update for after combat
         self.flyoutUpdateQueued = true
@@ -6323,25 +6323,25 @@ end
 
 --- Sync FlyoutInfo data to secure environment (must be called before combat)
 -- Phase 12 Item 6 (continued)
-function LAB:SyncFlyoutInfoToSecure()
+function LTAB:SyncFlyoutInfoToSecure()
     if not self.flyoutHandler then
         return
     end
 
     -- Build secure environment data string
-    local data = "LAB_FlyoutInfo = newtable();\n"
+    local data = "LTAB_FlyoutInfo = newtable();\n"
 
     for flyoutID, info in pairs(self.FlyoutInfo) do
         if info and info.numSlots then
-            data = data .. string.format("LAB_FlyoutInfo[%d] = newtable();", flyoutID)
-            data = data .. string.format("LAB_FlyoutInfo[%d].numSlots = %d;", flyoutID, info.numSlots)
-            data = data .. string.format("LAB_FlyoutInfo[%d].slots = newtable();", flyoutID)
+            data = data .. string.format("LTAB_FlyoutInfo[%d] = newtable();", flyoutID)
+            data = data .. string.format("LTAB_FlyoutInfo[%d].numSlots = %d;", flyoutID, info.numSlots)
+            data = data .. string.format("LTAB_FlyoutInfo[%d].slots = newtable();", flyoutID)
 
             for slotID, slotInfo in pairs(info.slots) do
                 if slotInfo and slotInfo.spellID then
-                    data = data .. string.format("LAB_FlyoutInfo[%d].slots[%d] = newtable();", flyoutID, slotID)
-                    data = data .. string.format("LAB_FlyoutInfo[%d].slots[%d].spellID = %d;", flyoutID, slotID, slotInfo.spellID)
-                    data = data .. string.format("LAB_FlyoutInfo[%d].slots[%d].isKnown = %s;", flyoutID, slotID, slotInfo.isKnown and "true" or "nil")
+                    data = data .. string.format("LTAB_FlyoutInfo[%d].slots[%d] = newtable();", flyoutID, slotID)
+                    data = data .. string.format("LTAB_FlyoutInfo[%d].slots[%d].spellID = %d;", flyoutID, slotID, slotInfo.spellID)
+                    data = data .. string.format("LTAB_FlyoutInfo[%d].slots[%d].isKnown = %s;", flyoutID, slotID, slotInfo.isKnown and "true" or "nil")
                 end
             end
         end
@@ -6354,7 +6354,7 @@ function LAB:SyncFlyoutInfoToSecure()
 end
 
 --- Count table entries (helper for debug output)
-function LAB:tcount(tbl)
+function LTAB:tcount(tbl)
     local count = 0
     for _ in pairs(tbl or {}) do
         count = count + 1
@@ -6367,52 +6367,52 @@ end
 -----------------------------------
 
 -- Register overlay events for proc glows (Retail only)
-LAB:RegisterOverlayEvents()
+LTAB:RegisterOverlayEvents()
 
 -- Phase 13 Feature #7: Set up on-bar highlight hooks for spellbook integration
-LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = nil
-LAB.ON_BAR_HIGHLIGHT_MARK_ID = nil
+LTAB.ON_BAR_HIGHLIGHT_MARK_TYPE = nil
+LTAB.ON_BAR_HIGHLIGHT_MARK_ID = nil
 
 if UpdateOnBarHighlightMarksBySpell then
     hooksecurefunc("UpdateOnBarHighlightMarksBySpell", function(spellID)
-        LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = "spell"
-        LAB.ON_BAR_HIGHLIGHT_MARK_ID = tonumber(spellID)
-        for button in pairs(LAB.buttons) do
-            LAB:UpdateSpellHighlight(button)
+        LTAB.ON_BAR_HIGHLIGHT_MARK_TYPE = "spell"
+        LTAB.ON_BAR_HIGHLIGHT_MARK_ID = tonumber(spellID)
+        for button in pairs(LTAB.buttons) do
+            LTAB:UpdateSpellHighlight(button)
         end
     end)
 end
 
 if UpdateOnBarHighlightMarksByFlyout then
     hooksecurefunc("UpdateOnBarHighlightMarksByFlyout", function(flyoutID)
-        LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = "flyout"
-        LAB.ON_BAR_HIGHLIGHT_MARK_ID = tonumber(flyoutID)
-        for button in pairs(LAB.buttons) do
-            LAB:UpdateSpellHighlight(button)
+        LTAB.ON_BAR_HIGHLIGHT_MARK_TYPE = "flyout"
+        LTAB.ON_BAR_HIGHLIGHT_MARK_ID = tonumber(flyoutID)
+        for button in pairs(LTAB.buttons) do
+            LTAB:UpdateSpellHighlight(button)
         end
     end)
 end
 
 if ClearOnBarHighlightMarks then
     hooksecurefunc("ClearOnBarHighlightMarks", function()
-        LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = nil
-        LAB.ON_BAR_HIGHLIGHT_MARK_ID = nil
-        for button in pairs(LAB.buttons) do
-            LAB:UpdateSpellHighlight(button)
+        LTAB.ON_BAR_HIGHLIGHT_MARK_TYPE = nil
+        LTAB.ON_BAR_HIGHLIGHT_MARK_ID = nil
+        for button in pairs(LTAB.buttons) do
+            LTAB:UpdateSpellHighlight(button)
         end
     end)
 end
 
 if ActionBarController_UpdateAllSpellHighlights then
     hooksecurefunc("ActionBarController_UpdateAllSpellHighlights", function()
-        for button in pairs(LAB.buttons) do
-            LAB:UpdateSpellHighlight(button)
+        for button in pairs(LTAB.buttons) do
+            LTAB:UpdateSpellHighlight(button)
         end
     end)
 end
 
 -- Initialize secure flyout handler (Phase 12 Item 6)
-LAB:InitializeSecureFlyoutHandler()
+LTAB:InitializeSecureFlyoutHandler()
 
 -- Export
-return LAB
+return LTAB

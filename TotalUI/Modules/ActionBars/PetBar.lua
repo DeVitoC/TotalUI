@@ -1,38 +1,28 @@
 --[[
-    TotalUI - ActionBar Class
-    Handles creation and management of individual action bars.
+    TotalUI - PetBar Class
+    Handles creation and management of the pet action bar.
 --]]
 
 local AddonName, ns = ...
 local E = ns.public
 
--- Create ActionBar class
-local ActionBar = {}
-ActionBar.__index = ActionBar
+-- Create PetBar class
+local PetBar = {}
+PetBar.__index = PetBar
 
--- Class Action Page Mappings (for Bar 1 paging)
-local CLASS_PAGING = {
-    DRUID = "[bonusbar:1,nostealth] 7; [bonusbar:1,stealth] 8; [bonusbar:2] 8; [bonusbar:3] 9; [bonusbar:4] 10;",
-    WARRIOR = "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9;",
-    PRIEST = "[bonusbar:1] 7;",
-    ROGUE = "[bonusbar:1] 7; [form:1] 7; [form:2] 7; [form:3] 7;",
-    WARLOCK = "[form:1] 7;",
-    MONK = "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9;",
-    DEMONHUNTER = "[bonusbar:1] 7;",
-    EVOKER = "[bonusbar:1] 7;",
-}
+-----------------------------------
+-- CONSTRUCTOR
+-----------------------------------
 
--- Constructor
-function ActionBar:New(id, parent)
-    local bar = setmetatable({}, ActionBar)
+function PetBar:New(parent)
+    local bar = setmetatable({}, PetBar)
 
-    bar.id = id
     bar.parent = parent
     bar.buttons = {}
-    bar.db = E.db.actionbar["bar" .. id]
+    bar.db = E.db.actionbar.barPet
 
     if not bar.db then
-        error(string.format("ActionBar %d: No configuration found in database", id))
+        error("PetBar: No configuration found in database")
         return nil
     end
 
@@ -45,9 +35,9 @@ end
 -- FRAME CREATION
 -----------------------------------
 
-function ActionBar:Create()
+function PetBar:Create()
     -- Create main bar frame (secure for combat safety)
-    local frameName = "TotalUI_Bar" .. self.id
+    local frameName = "TotalUI_PetBar"
     self.frame = CreateFrame("Frame", frameName, self.parent or UIParent, "SecureHandlerStateTemplate")
     self.frame:SetFrameStrata("LOW")
     self.frame:SetFrameLevel(5)
@@ -67,24 +57,23 @@ function ActionBar:Create()
     self:PositionButtons()
     self:UpdateBarSize()
     self:SetupVisibility()
-    self:SetupPaging()
     self:SetupMouseover()
     self:PositionBar()
 
-    -- Register for updates
+    -- Register for events
     self:RegisterEvents()
 end
 
-function ActionBar:CreateButtons()
+function PetBar:CreateButtons()
     -- Check if LibTotalActionButtons is available
     local LTAB = E.Libs.LibTotalActionButtons
 
     if not LTAB then
-        E:Print(string.format("Bar %d: LibTotalActionButtons not available, buttons will not function correctly", self.id))
+        E:Print("PetBar: LibTotalActionButtons not available, buttons will not function correctly")
         return
     end
 
-    -- Create buttons
+    -- Create pet action buttons
     for i = 1, self.db.buttons do
         local button = self:CreateButton(i, LTAB)
         if button then
@@ -93,48 +82,45 @@ function ActionBar:CreateButtons()
     end
 end
 
-function ActionBar:CreateButton(buttonID, LTAB)
-    -- Calculate action ID (which WoW action slot this button represents)
-    local actionID = self:GetActionID(buttonID)
+function PetBar:CreateButton(buttonID, LTAB)
+    -- Pet action IDs are special:
+    -- They use PET_ACTION_* constants and range from 1-10
+    -- We don't need to calculate offset like regular action bars
+    local petActionID = buttonID
 
     -- Create button name
-    local buttonName = string.format("TotalUI_Bar%dButton%d", self.id, buttonID)
+    local buttonName = string.format("TotalUI_PetBarButton%d", buttonID)
 
     -- Build config for LibTotalActionButtons
     local config = self:BuildButtonConfig()
 
     -- Create button using LibTotalActionButtons
-    local button = LTAB:CreateButton(actionID, buttonName, self.frame, config)
+    -- For pet buttons, we need to set the type to "PET" and action to the pet action slot
+    local button = LTAB:CreateButton(petActionID, buttonName, self.frame, config)
 
     if not button then
-        E:Print(string.format("Bar %d Button %d: Failed to create", self.id, buttonID))
+        E:Print(string.format("PetBar Button %d: Failed to create", buttonID))
         return nil
     end
+
+    -- Set the button type to PET
+    -- This tells LibTotalActionButtons to use pet action APIs instead of regular action APIs
+    LTAB:SetButtonType(button, LTAB.ButtonType.PET, petActionID)
 
     -- Set size using LibTotalActionButtons (properly resizes all button elements)
     LTAB:SetButtonSize(button, self.db.buttonSize, self.db.buttonHeight or self.db.buttonSize)
 
     -- Additional styling
     self:StyleButton(button, buttonID)
-    self:ConfigureButton(button, buttonID)
 
     return button
-end
-
-function ActionBar:GetActionID(buttonID)
-    -- WoW action IDs:
-    -- Bar 1 = actions 1-12
-    -- Bar 2 = actions 13-24
-    -- Bar 3 = actions 25-36
-    -- etc.
-    return ((self.id - 1) * 12) + buttonID
 end
 
 -----------------------------------
 -- BUTTON CONFIG
 -----------------------------------
 
-function ActionBar:BuildButtonConfig()
+function PetBar:BuildButtonConfig()
     local db = self.db
     local globalDB = E.db.actionbar
 
@@ -153,9 +139,9 @@ function ActionBar:BuildButtonConfig()
             unusable = colorToArray(globalDB.notUsableColor),
         },
         hideElements = {
-            equipped = not globalDB.equippedItem,
+            equipped = true,  -- Pet abilities don't show equipped status
             hotkey = not db.hotkeytext,
-            macro = not db.macrotext,
+            macro = true,  -- Pet buttons don't have macro names
         },
         keyBoundTarget = false, -- We handle keybinds
         outOfRangeColoring = "button",
@@ -163,38 +149,26 @@ function ActionBar:BuildButtonConfig()
         text = {
             hotkey = {
                 font = E.LSM:Fetch("font", db.hotkeyFont or E.db.general.font),
-                size = db.hotkeyFontSize or 12,
+                size = db.hotkeyFontSize or 10,
                 flags = db.hotkeyFontOutline or "OUTLINE",
                 color = db.hotkeyColor and colorToArray(db.hotkeyColor) or {1, 1, 1},
                 position = {
-                    anchor = db.hotkeyTextPosition or "TOPRIGHT",
-                    relAnchor = db.hotkeyTextPosition or "TOPRIGHT",
-                    offsetX = db.hotkeyTextXOffset or 0,
-                    offsetY = db.hotkeyTextYOffset or 0,
+                    anchor = "TOPRIGHT",
+                    relAnchor = "TOPRIGHT",
+                    offsetX = 0,
+                    offsetY = 0,
                 },
             },
             count = {
                 font = E.LSM:Fetch("font", db.countFont or E.db.general.font),
-                size = db.countFontSize or 14,
+                size = db.countFontSize or 12,
                 flags = db.countFontOutline or "OUTLINE",
                 color = db.countColor and colorToArray(db.countColor) or {1, 1, 1},
                 position = {
-                    anchor = db.countTextPosition or "BOTTOMRIGHT",
-                    relAnchor = db.countTextPosition or "BOTTOMRIGHT",
-                    offsetX = db.countTextXOffset or 0,
-                    offsetY = db.countTextYOffset or 2,
-                },
-            },
-            macro = {
-                font = E.LSM:Fetch("font", db.macroFont or E.db.general.font),
-                size = db.macroFontSize or 12,
-                flags = db.macroFontOutline or "NONE",
-                color = db.macroColor and colorToArray(db.macroColor) or {1, 1, 1},
-                position = {
-                    anchor = db.macroTextPosition or "BOTTOM",
-                    relAnchor = db.macroTextPosition or "BOTTOM",
-                    offsetX = db.macroTextXOffset or 0,
-                    offsetY = db.macroTextYOffset or 2,
+                    anchor = "BOTTOMRIGHT",
+                    relAnchor = "BOTTOMRIGHT",
+                    offsetX = 0,
+                    offsetY = 2,
                 },
             },
         },
@@ -205,7 +179,7 @@ end
 -- BUTTON STYLING
 -----------------------------------
 
-function ActionBar:StyleButton(button, buttonID)
+function PetBar:StyleButton(button, buttonID)
     -- LibTotalActionButtons handles most styling
     -- This function is for any bar-specific customization
 
@@ -217,22 +191,17 @@ function ActionBar:StyleButton(button, buttonID)
     end
 end
 
-function ActionBar:ConfigureButton(button, buttonID)
-    -- Additional button configuration can go here
-    -- (keybindings, tooltips, etc.)
-end
-
 -----------------------------------
 -- POSITIONING
 -----------------------------------
 
-function ActionBar:PositionButtons()
+function PetBar:PositionButtons()
     local db = self.db
     local buttonsPerRow = db.buttonsPerRow
     local spacing = db.buttonSpacing
     local backdropSpacing = db.backdropSpacing
 
-    -- Use configured button size (SetButtonSize ensures buttons are actually this size)
+    -- Use configured button size
     local buttonWidth = db.buttonSize
     local buttonHeight = db.buttonHeight or db.buttonSize
 
@@ -255,12 +224,12 @@ function ActionBar:PositionButtons()
     end
 end
 
-function ActionBar:UpdateBarSize()
+function PetBar:UpdateBarSize()
     local db = self.db
     local numRows = math.ceil(db.buttons / db.buttonsPerRow)
     local numCols = math.min(db.buttons, db.buttonsPerRow)
 
-    -- Use configured button size (SetButtonSize ensures buttons are actually this size)
+    -- Use configured button size
     local buttonWidth = db.buttonSize
     local buttonHeight = db.buttonHeight or db.buttonSize
 
@@ -270,47 +239,31 @@ function ActionBar:UpdateBarSize()
     self.frame:SetSize(width, height)
 end
 
-function ActionBar:PositionBar()
+function PetBar:PositionBar()
     local db = self.db
 
     self.frame:ClearAllPoints()
-    self.frame:SetPoint(db.point or "BOTTOM", UIParent, db.point or "BOTTOM", db.xOffset or 0, db.yOffset or 0)
+    self.frame:SetPoint(db.point or "BOTTOM", UIParent, db.point or "BOTTOM", db.xOffset or 0, db.yOffset or 112)
 end
 
 -----------------------------------
--- VISIBILITY & PAGING
+-- VISIBILITY
 -----------------------------------
 
-function ActionBar:SetupVisibility()
-    if not self.db.visibility or self.db.visibility == "" then
-        self.frame:Show()
-        return
-    end
+function PetBar:SetupVisibility()
+    -- Pet bar should show when player has a pet
+    -- Hide during pet battles, vehicles, and override bars
+    local visibilityMacro = "[petbattle][overridebar][vehicleui][possessbar] hide; [pet] show; hide"
 
     -- Use secure attribute driver for visibility
-    RegisterAttributeDriver(self.frame, "state-visibility", self.db.visibility)
-end
-
-function ActionBar:SetupPaging()
-    -- Only Bar 1 typically uses paging
-    if self.id ~= 1 or not self.db.paging then
-        return
-    end
-
-    local _, playerClass = UnitClass("player")
-    local pagingString = CLASS_PAGING[playerClass]
-
-    if pagingString then
-        -- Set up paging for this class
-        RegisterAttributeDriver(self.frame, "state-page", pagingString)
-    end
+    RegisterAttributeDriver(self.frame, "state-visibility", visibilityMacro)
 end
 
 -----------------------------------
 -- MOUSEOVER FADE
 -----------------------------------
 
-function ActionBar:SetupMouseover()
+function PetBar:SetupMouseover()
     local db = self.db
 
     -- Clear any existing scripts
@@ -353,27 +306,72 @@ end
 -- EVENTS
 -----------------------------------
 
-function ActionBar:RegisterEvents()
-    -- Events can be registered here if needed
-    -- For now, LibActionButton handles most button updates automatically
+function PetBar:RegisterEvents()
+    -- PetBar needs to update when pet state changes
+    if not self.eventFrame then
+        self.eventFrame = CreateFrame("Frame")
+    end
+
+    self.eventFrame:RegisterEvent("UNIT_PET")
+    self.eventFrame:RegisterEvent("PLAYER_CONTROL_LOST")
+    self.eventFrame:RegisterEvent("PLAYER_CONTROL_GAINED")
+    self.eventFrame:RegisterEvent("PLAYER_FARSIGHT_FOCUS_CHANGED")
+    self.eventFrame:RegisterEvent("PET_BAR_UPDATE")
+    self.eventFrame:RegisterEvent("PET_BAR_UPDATE_COOLDOWN")
+
+    self.eventFrame:SetScript("OnEvent", function(_, event, ...)
+        if event == "UNIT_PET" then
+            local unit = ...
+            if unit == "player" then
+                self:OnPetChanged()
+            end
+        elseif event == "PET_BAR_UPDATE" or event == "PET_BAR_UPDATE_COOLDOWN" then
+            self:UpdateButtons()
+        elseif event == "PLAYER_CONTROL_LOST" or event == "PLAYER_CONTROL_GAINED" or event == "PLAYER_FARSIGHT_FOCUS_CHANGED" then
+            self:UpdateVisibility()
+        end
+    end)
+end
+
+function PetBar:OnPetChanged()
+    -- Pet summoned or dismissed
+    self:UpdateButtons()
+    self:UpdateVisibility()
+end
+
+function PetBar:UpdateVisibility()
+    -- Visibility is handled by the attribute driver
+    -- This function is for any additional logic needed
+end
+
+function PetBar:UpdateButtons()
+    -- Update all buttons
+    local LTAB = E.Libs.LibTotalActionButtons
+    if not LTAB then return end
+
+    for _, button in ipairs(self.buttons) do
+        if button then
+            LTAB:UpdateButton(button)
+        end
+    end
 end
 
 -----------------------------------
 -- UPDATE
 -----------------------------------
 
-function ActionBar:Update()
+function PetBar:Update()
     -- Check combat
     if InCombatLockdown() then
         E:QueueAfterCombat(function()
             self:Update()
         end)
-        E:Print(string.format("Bar %d: Changes will apply after combat", self.id))
+        E:Print("PetBar: Changes will apply after combat")
         return
     end
 
     -- Update configuration reference
-    self.db = E.db.actionbar["bar" .. self.id]
+    self.db = E.db.actionbar.barPet
 
     if not self.db or not self.db.enabled then
         self.frame:Hide()
@@ -384,7 +382,6 @@ function ActionBar:Update()
     self:PositionButtons()
     self:UpdateBarSize()
     self:SetupVisibility()
-    self:SetupPaging()
     self:SetupMouseover()
     self:PositionBar()
 
@@ -415,7 +412,12 @@ end
 -- CLEANUP
 -----------------------------------
 
-function ActionBar:Destroy()
+function PetBar:Destroy()
+    -- Unregister events
+    if self.eventFrame then
+        self.eventFrame:UnregisterAllEvents()
+    end
+
     -- Clean up buttons
     for _, button in ipairs(self.buttons) do
         if button then
@@ -433,4 +435,4 @@ function ActionBar:Destroy()
 end
 
 -- Export class to namespace
-ns.ActionBar = ActionBar
+ns.PetBar = PetBar

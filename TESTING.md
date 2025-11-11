@@ -274,18 +274,18 @@ Misc         true
 ## Phase 1A: ActionBars - Bar 1 Tests
 
 ### Prerequisites
-LibActionButton-1.0 must be installed in `TotalUI/Libraries/LibActionButton-1.0/` and loaded in the .toc file.
+LibTotalActionButtons-1.0 must be loaded in the .toc file (included with TotalUI).
 
 ---
 
-### Test 18: LibActionButton Loaded
-**Command:** `/run print("LAB:", TotalUI.Libs["LibActionButton-1.0"] and "Loaded" or "Missing")`
+### Test 18: LibTotalActionButtons Loaded
+**Command:** `/run print("LTAB:", TotalUI.Libs.LibTotalActionButtons and "Loaded" or "Missing")`
 
-**Expected:** Prints `LAB: Loaded`
+**Expected:** Prints `LTAB: Loaded`
 
 **Result:**
-- ✅ **Pass** if prints "LAB: Loaded"
-- ❌ **Fail** if prints "LAB: Missing" (install LibActionButton-1.0)
+- ✅ **Pass** if prints "LTAB: Loaded"
+- ❌ **Fail** if prints "LTAB: Missing" (check .toc file)
 
 ---
 
@@ -668,7 +668,7 @@ TotalUI:   Bar 5: Enabled
 - No bar mover tool yet
 
 **If Tests Fail:**
-1. Verify LibActionButton-1.0 is properly installed
+1. Verify LibTotalActionButtons-1.0 is loaded in .toc file
 2. Check `/console scriptErrors 1` for errors
 3. Run `/totalui status` to check addon state
 4. Review failed test and check related code

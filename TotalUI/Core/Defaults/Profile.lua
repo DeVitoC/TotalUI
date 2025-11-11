@@ -270,6 +270,37 @@ E.ProfileDefaults = {
             xOffset = -4,
             yOffset = -4,
         },
+
+        -- Extra Action Buttons
+        extraActionButton = {
+            enabled = true,
+            buttonSize = 52,
+            scale = 1,
+            alpha = 1,
+            point = "BOTTOM",
+            xOffset = 0,
+            yOffset = 200,
+        },
+
+        zoneActionButton = {
+            enabled = true,
+            buttonSize = 52,
+            scale = 1,
+            alpha = 1,
+            point = "BOTTOM",
+            xOffset = 0,
+            yOffset = 260,
+        },
+
+        vehicleExitButton = {
+            enabled = true,
+            buttonSize = 32,
+            scale = 1,
+            alpha = 1,
+            point = "BOTTOMLEFT",
+            xOffset = 100,
+            yOffset = 100,
+        },
     },
 
     -- Phase 2: UnitFrames

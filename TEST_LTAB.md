@@ -8,22 +8,22 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 ### Test 1.1: Verify LibStub Registration
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0", true); print("LibStub:", LAB and "SUCCESS" or "FAILED")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0", true); print("LibStub:", LTAB and "SUCCESS" or "FAILED")
 ```
 
 ### Test 1.2: Check Version Detection
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); print("Version:", LAB.VERSION_STRING); print("WoW Type:", LAB.VERSION_INFO.detectedVersion)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); print("Version:", LTAB.VERSION_STRING); print("WoW Type:", LTAB.VERSION_INFO.detectedVersion)
 ```
 
 ### Test 1.3: Verify API Compatibility Wrappers
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); print("Retail APIs:", LAB.Compat.GetActionCharges and "Available" or "Wrapped"); print("C_ActionBar:", LAB.Compat.C_ActionBar and "OK" or "MISSING")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); print("Retail APIs:", LTAB.Compat.GetActionCharges and "Available" or "Wrapped"); print("C_ActionBar:", LTAB.Compat.C_ActionBar and "OK" or "MISSING")
 ```
 
 ### Test 1.4: Enable Debug Mode
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true)
 ```
 
 ### Test 1.5: Test Parameter Validation
@@ -34,7 +34,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Then run the test**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true); LAB:CreateButton(nil, "Test", UIParent)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true); LTAB:CreateButton(nil, "Test", UIParent)
 ```
 **Expected**: RED Lua error message in chat: "LibTotalActionButtons: CreateButton: actionID is required!"
 
@@ -46,12 +46,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Step 2: Create the button**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:SetDebug(true); _G.TestBtn = LAB:CreateButton(1, 'Phase1TestButton', UIParent)
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:SetDebug(true); _G.TestBtn = LTAB:CreateButton(1, 'Phase1TestButton', UIParent)
 ```
 
 **Step 3: Position and size the button**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); if _G.TestBtn then _G.TestBtn:SetPoint('CENTER'); LAB:SetButtonSize(_G.TestBtn, 40, 40); _G.TestBtn:Show(); print('SUCCESS') else print('FAILED') end
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); if _G.TestBtn then _G.TestBtn:SetPoint('CENTER'); LTAB:SetButtonSize(_G.TestBtn, 40, 40); _G.TestBtn:Show(); print('SUCCESS') else print('FAILED') end
 ```
 
 **Expected**:
@@ -88,19 +88,19 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 ### Test 2.1: Verify Button Types Available
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); for k,v in pairs(LAB.ButtonType) do print(k..":", v) end
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); for k,v in pairs(LTAB.ButtonType) do print(k..":", v) end
 ```
 **Expected**: Print all button types (ACTION, SPELL, ITEM, MACRO, CUSTOM, EMPTY)
 
 ### Test 2.2: Test Action Button
 **Step 1: Create action button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true); _G.TestActionBtn = LAB:CreateButton(1, "Phase2ActionButton", UIParent)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true); _G.TestActionBtn = LTAB:CreateButton(1, "Phase2ActionButton", UIParent)
 ```
 
 **Step 2: Position and verify**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = _G.TestActionBtn; if btn then btn:SetPoint("CENTER", -150, 0); LAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType); print("Has UpdateFunctions:", btn.UpdateFunctions and "YES" or "NO") else print("FAILED") end
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); local btn = _G.TestActionBtn; if btn then btn:SetPoint("CENTER", -150, 0); LTAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType); print("Has UpdateFunctions:", btn.UpdateFunctions and "YES" or "NO") else print("FAILED") end
 ```
 
 **Expected**: Button at left-center, Type: "action", Has UpdateFunctions: YES
@@ -108,12 +108,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 2.3: Test Spell Button
 **Step 1: Create spell button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true); _G.TestSpellBtn = LAB:CreateSpellButton(1231411, "Phase2SpellButton", UIParent)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true); _G.TestSpellBtn = LTAB:CreateSpellButton(1231411, "Phase2SpellButton", UIParent)
 ```
 
 **Step 2: Position and size**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); local btn = _G.TestSpellBtn; if btn then btn:SetPoint('CENTER', -50, 0); LAB:SetButtonSize(btn, 40, 40); btn:Show() end
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); local btn = _G.TestSpellBtn; if btn then btn:SetPoint('CENTER', -50, 0); LTAB:SetButtonSize(btn, 40, 40); btn:Show() end
 ```
 
 **Step 3: Verify**:
@@ -126,12 +126,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 2.4: Test Item Button (Hearthstone)
 **Step 1: Create item button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true); _G.TestItemBtn = LAB:CreateItemButton(6948, "Phase2ItemButton", UIParent)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true); _G.TestItemBtn = LTAB:CreateItemButton(6948, "Phase2ItemButton", UIParent)
 ```
 
 **Step 2: Position and verify**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); local btn = _G.TestItemBtn; if btn then btn:SetPoint("CENTER", 50, 0); LAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType); print("ItemID:", btn.buttonAction) end
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); local btn = _G.TestItemBtn; if btn then btn:SetPoint("CENTER", 50, 0); LTAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType); print("ItemID:", btn.buttonAction) end
 ```
 
 **Expected**: Shows hearthstone icon, Type: "item", ItemID: 6948
@@ -146,7 +146,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Step 2: Create macro button (if available)**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); if GetNumMacros() > 0 then LAB:SetDebug(true); _G.TestMacroBtn = LAB:CreateMacroButton(1, "Phase2MacroButton", UIParent); local btn = _G.TestMacroBtn; btn:SetPoint("CENTER", 150, 0); LAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType) else print("No macros available") end
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); if GetNumMacros() > 0 then LTAB:SetDebug(true); _G.TestMacroBtn = LTAB:CreateMacroButton(1, "Phase2MacroButton", UIParent); local btn = _G.TestMacroBtn; btn:SetPoint("CENTER", 150, 0); LTAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType) else print("No macros available") end
 ```
 
 **Expected** (if macros exist): Shows macro icon, Type: "macro"
@@ -159,7 +159,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Step 2: Create custom button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true); _G.TestCustomBtn = LAB:CreateCustomButton(999, "Phase2CustomButton", UIParent, nil, _G.CustomUpdateFuncs); local btn = _G.TestCustomBtn; btn:SetPoint("CENTER", 0, -80); LAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true); _G.TestCustomBtn = LTAB:CreateCustomButton(999, "Phase2CustomButton", UIParent, nil, _G.CustomUpdateFuncs); local btn = _G.TestCustomBtn; btn:SetPoint("CENTER", 0, -80); LTAB:SetButtonSize(btn, 40, 40); btn:Show(); print("Type:", btn.buttonType)
 ```
 
 **Expected**: Shows question mark icon, Type: "custom"
@@ -176,25 +176,25 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 3.1: Basic State Setup and Switching
 **Step 1: Create button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true); _G.TestStateBtn = LAB:CreateButton(1, "Phase3StateButton", UIParent); local btn = _G.TestStateBtn; btn:SetPoint("CENTER"); LAB:SetButtonSize(btn, 44, 44); btn:Show()
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true); _G.TestStateBtn = LTAB:CreateButton(1, "Phase3StateButton", UIParent); local btn = _G.TestStateBtn; btn:SetPoint("CENTER"); LTAB:SetButtonSize(btn, 44, 44); btn:Show()
 ```
 
 **Step 2: Set up multiple states**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); local btn = _G.TestStateBtn; LAB:SetState(btn, 0, "action", 1); LAB:SetState(btn, 1, "spell", 1231411); LAB:SetState(btn, 2, "item", 6948); print("Configured 3 states")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); local btn = _G.TestStateBtn; LTAB:SetState(btn, 0, "action", 1); LTAB:SetState(btn, 1, "spell", 1231411); LTAB:SetState(btn, 2, "item", 6948); print("Configured 3 states")
 ```
 
 **Step 3: Test state switching**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:UpdateState(_G.TestStateBtn, 0); print("State 0 - action slot 1")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:UpdateState(_G.TestStateBtn, 0); print("State 0 - action slot 1")
 ```
 
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:UpdateState(_G.TestStateBtn, 1); print("State 1 - spell")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:UpdateState(_G.TestStateBtn, 1); print("State 1 - spell")
 ```
 
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:UpdateState(_G.TestStateBtn, 2); print("State 2 - hearthstone")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:UpdateState(_G.TestStateBtn, 2); print("State 2 - hearthstone")
 ```
 
 **Expected**: Button changes icon when switching states (action → spell → item)
@@ -202,12 +202,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 3.2: Query State Information
 **Get current state**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); local state = LAB:GetState(_G.TestStateBtn); print("Current state:", state)
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); local state = LTAB:GetState(_G.TestStateBtn); print("Current state:", state)
 ```
 
 **Get specific state info**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); local type, action = LAB:GetState(_G.TestStateBtn, 1); print("State 1:", type, action)
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); local type, action = LTAB:GetState(_G.TestStateBtn, 1); print("State 1:", type, action)
 ```
 
 **Expected**: Returns correct state numbers and configured types/actions
@@ -215,7 +215,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 3.3: State Fallback Behavior
 **Switch to undefined state**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:UpdateState(_G.TestStateBtn, 99); local type, action = LAB:GetAction(_G.TestStateBtn); print("Fallback shows:", type, action)
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:UpdateState(_G.TestStateBtn, 99); local type, action = LTAB:GetAction(_G.TestStateBtn); print("Fallback shows:", type, action)
 ```
 
 **Expected**: Falls back to state 0 (action 1)
@@ -223,7 +223,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 3.4: Clear States
 **Clear all states**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:ClearStates(_G.TestStateBtn); local btn = _G.TestStateBtn; print("State 0:", btn.stateTypes["0"] or "nil"); print("State 1:", btn.stateTypes["1"] or "nil")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:ClearStates(_G.TestStateBtn); local btn = _G.TestStateBtn; print("State 0:", btn.stateTypes["0"] or "nil"); print("State 1:", btn.stateTypes["1"] or "nil")
 ```
 
 **Expected**: State tables are empty
@@ -231,16 +231,16 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 3.5: Paging Support
 **Create and configure paging button**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); _G.TestPageBtn = LAB:CreateButton(1, "Phase3PageButton", UIParent); local btn = _G.TestPageBtn; btn:SetPoint("CENTER", -100, 0); LAB:SetButtonSize(btn, 44, 44); btn:Show(); for i=1,6 do LAB:SetState(btn, tostring(i), "action", i) end; LAB:EnablePaging(btn, true); print("Paging enabled with 6 states")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); _G.TestPageBtn = LTAB:CreateButton(1, "Phase3PageButton", UIParent); local btn = _G.TestPageBtn; btn:SetPoint("CENTER", -100, 0); LTAB:SetButtonSize(btn, 44, 44); btn:Show(); for i=1,6 do LTAB:SetState(btn, tostring(i), "action", i) end; LTAB:EnablePaging(btn, true); print("Paging enabled with 6 states")
 ```
 
 **Test page changes**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:OnPageChanged(2); print("Page 2")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:OnPageChanged(2); print("Page 2")
 ```
 
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:OnPageChanged(3); print("Page 3")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:OnPageChanged(3); print("Page 3")
 ```
 
 **Expected**: Button updates icon when page changes
@@ -248,24 +248,24 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 ### Test 3.6: Mixed Button Types in States
 **Create button with mixed types**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); _G.TestMixedBtn = LAB:CreateButton(1, "Phase3MixedButton", UIParent); local btn = _G.TestMixedBtn; btn:SetPoint("CENTER", 0, -100); LAB:SetButtonSize(btn, 44, 44); btn:Show(); LAB:SetState(btn, "0", "action", 1); LAB:SetState(btn, "1", "spell", 1231411); LAB:SetState(btn, "2", "item", 6948); print("Mixed states configured")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); _G.TestMixedBtn = LTAB:CreateButton(1, "Phase3MixedButton", UIParent); local btn = _G.TestMixedBtn; btn:SetPoint("CENTER", 0, -100); LTAB:SetButtonSize(btn, 44, 44); btn:Show(); LTAB:SetState(btn, "0", "action", 1); LTAB:SetState(btn, "1", "spell", 1231411); LTAB:SetState(btn, "2", "item", 6948); print("Mixed states configured")
 ```
 
 **Test state 0 (action)**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:UpdateState(_G.TestMixedBtn, "0"); print("State 0 - click to test action")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:UpdateState(_G.TestMixedBtn, "0"); print("State 0 - click to test action")
 ```
 **Click the button - should use action slot**
 
 **Test state 1 (spell)**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:UpdateState(_G.TestMixedBtn, "1"); print("State 1 - click to test spell")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:UpdateState(_G.TestMixedBtn, "1"); print("State 1 - click to test spell")
 ```
 **Click the button - should cast Recuperate**
 
 **Test state 2 (item)**:
 ```lua
-/run local LAB = LibStub('LibTotalActionButtons-1.0'); LAB:UpdateState(_G.TestMixedBtn, "2"); print("State 2 - click to test item")
+/run local LTAB = LibStub('LibTotalActionButtons-1.0'); LTAB:UpdateState(_G.TestMixedBtn, "2"); print("State 2 - click to test item")
 ```
 **Click the button - should use hearthstone**
 
@@ -880,7 +880,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Register callback**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCallbacks, "OnButtonCreated", "OnCreated"); print("Callback registered")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB.RegisterCallback(_G.TestCallbacks, "OnButtonCreated", "OnCreated"); print("Callback registered")
 ```
 
 **Expected**:
@@ -891,7 +891,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Script**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(5, "TestButton7_1", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71 = btn; print("Button created")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); local btn = LTAB:CreateButton(5, "TestButton7_1", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71 = btn; print("Button created")
 ```
 
 **Expected**:
@@ -900,19 +900,19 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T71 then _G.T71:Hide();_G.T71:SetParent(nil);_G.T71=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCallbacks,"OnButtonCreated"); _G.TestCallbacks=nil
+/run if _G.T71 then _G.T71:Hide();_G.T71:SetParent(nil);_G.T71=nil end; local LTAB=LibStub("LibTotalActionButtons-1.0"); LTAB.UnregisterCallback(_G.TestCallbacks,"OnButtonCreated"); _G.TestCallbacks=nil
 ```
 
 ### Test OnButtonUpdate callback
 
 **Create callback and register**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); _G.UpdateCount = 0; _G.TestCB2 = {}; _G.TestCB2.OnUpdate = function(self, event, button) _G.UpdateCount = _G.UpdateCount + 1 end; LAB.RegisterCallback(_G.TestCB2, "OnButtonUpdate", "OnUpdate")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); _G.UpdateCount = 0; _G.TestCB2 = {}; _G.TestCB2.OnUpdate = function(self, event, button) _G.UpdateCount = _G.UpdateCount + 1 end; LTAB.RegisterCallback(_G.TestCB2, "OnButtonUpdate", "OnUpdate")
 ```
 
 **Create button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1b", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71b = btn; print("Update callbacks: " .. _G.UpdateCount)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); local btn = LTAB:CreateButton(1, "TestButton7_1b", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71b = btn; print("Update callbacks: " .. _G.UpdateCount)
 ```
 
 **Expected**:
@@ -921,19 +921,19 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T71b then _G.T71b:Hide();_G.T71b:SetParent(nil);_G.T71b=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCB2,"OnButtonUpdate"); _G.UpdateCount=nil; _G.TestCB2=nil
+/run if _G.T71b then _G.T71b:Hide();_G.T71b:SetParent(nil);_G.T71b=nil end; local LTAB=LibStub("LibTotalActionButtons-1.0"); LTAB.UnregisterCallback(_G.TestCB2,"OnButtonUpdate"); _G.UpdateCount=nil; _G.TestCB2=nil
 ```
 
 ### Test OnButtonContentsChanged callback
 
 **Create callback**:
 ```lua
-/run _G.TestCB3 = {}; _G.TestCB3.OnChange = function(self, event, button) print("Contents changed!") end; local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCB3, "OnButtonContentsChanged", "OnChange")
+/run _G.TestCB3 = {}; _G.TestCB3.OnChange = function(self, event, button) print("Contents changed!") end; local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB.RegisterCallback(_G.TestCB3, "OnButtonContentsChanged", "OnChange")
 ```
 
 **Create button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1c", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71c = btn
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); local btn = LTAB:CreateButton(1, "TestButton7_1c", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71c = btn
 ```
 
 **Expected**:
@@ -942,7 +942,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T71c then _G.T71c:Hide();_G.T71c:SetParent(nil);_G.T71c=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCB3,"OnButtonContentsChanged"); _G.TestCB3=nil
+/run if _G.T71c then _G.T71c:Hide();_G.T71c:SetParent(nil);_G.T71c=nil end; local LTAB=LibStub("LibTotalActionButtons-1.0"); LTAB.UnregisterCallback(_G.TestCB3,"OnButtonContentsChanged"); _G.TestCB3=nil
 ```
 
 ### Test OnButtonEnter/Leave callbacks
@@ -954,12 +954,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Register callbacks**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCB4, "OnButtonEnter", "OnEnter"); LAB.RegisterCallback(_G.TestCB4, "OnButtonLeave", "OnLeave")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB.RegisterCallback(_G.TestCB4, "OnButtonEnter", "OnEnter"); LTAB.RegisterCallback(_G.TestCB4, "OnButtonLeave", "OnLeave")
 ```
 
 **Create button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1d", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71d = btn
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); local btn = LTAB:CreateButton(1, "TestButton7_1d", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); _G.T71d = btn
 ```
 
 **Expected**:
@@ -969,7 +969,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T71d then _G.T71d:Hide();_G.T71d:SetParent(nil);_G.T71d=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB.UnregisterCallback(_G.TestCB4,"OnButtonEnter"); LAB.UnregisterCallback(_G.TestCB4,"OnButtonLeave"); _G.TestCB4=nil
+/run if _G.T71d then _G.T71d:Hide();_G.T71d:SetParent(nil);_G.T71d=nil end; local LTAB=LibStub("LibTotalActionButtons-1.0"); LTAB.UnregisterCallback(_G.TestCB4,"OnButtonEnter"); LTAB.UnregisterCallback(_G.TestCB4,"OnButtonLeave"); _G.TestCB4=nil
 ```
 
 ### Test OnButtonStateChanged callback
@@ -981,12 +981,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Register callback**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB.RegisterCallback(_G.TestCB5, "OnButtonStateChanged", "OnStateChange")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB.RegisterCallback(_G.TestCB5, "OnButtonStateChanged", "OnStateChange")
 ```
 
 **Create button and set state 0**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_1e", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); LAB:SetState(btn, "0", "action", 1); btn:Show(); _G.T71e = btn
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); local btn = LTAB:CreateButton(1, "TestButton7_1e", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); LTAB:SetState(btn, "0", "action", 1); btn:Show(); _G.T71e = btn
 ```
 
 **Expected**:
@@ -994,12 +994,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Enable debug mode**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(true)
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(true)
 ```
 
 **Set state 1 and change state**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:SetState(_G.T71e, "1", "spell", 133); LAB:UpdateState(_G.T71e, "1")
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:SetState(_G.T71e, "1", "spell", 133); LTAB:UpdateState(_G.T71e, "1")
 ```
 
 **Expected**:
@@ -1018,7 +1018,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T71e then _G.T71e:Hide();_G.T71e:SetParent(nil);_G.T71e=nil end; local LAB=LibStub("LibTotalActionButtons-1.0"); LAB:SetDebug(false); LAB.UnregisterCallback(_G.TestCB5,"OnButtonStateChanged"); _G.TestCB5=nil
+/run if _G.T71e then _G.T71e:Hide();_G.T71e:SetParent(nil);_G.T71e=nil end; local LTAB=LibStub("LibTotalActionButtons-1.0"); LTAB:SetDebug(false); LTAB.UnregisterCallback(_G.TestCB5,"OnButtonStateChanged"); _G.TestCB5=nil
 ```
 
 ---
@@ -1050,7 +1050,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Create and add to Masque**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); local btn = LAB:CreateButton(1, "TestButton7_2", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); LAB:AddToMasque(btn); _G.T72 = btn
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); local btn = LTAB:CreateButton(1, "TestButton7_2", UIParent); btn:SetSize(36, 36); btn:SetPoint("CENTER", 0, 0); btn:Show(); LTAB:AddToMasque(btn); _G.T72 = btn
 ```
 
 **Check result**:
@@ -1065,7 +1065,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T72 then local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:RemoveFromMasque(_G.T72); _G.T72:Hide(); _G.T72:SetParent(nil); _G.T72=nil end
+/run if _G.T72 then local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:RemoveFromMasque(_G.T72); _G.T72:Hide(); _G.T72:SetParent(nil); _G.T72=nil end
 ```
 
 ---
@@ -1097,12 +1097,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Create button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); _G.T73 = LAB:CreateButton(1, "TestButton7_3", UIParent); _G.T73:SetSize(36, 36); _G.T73:SetPoint("CENTER", 0, 0); _G.T73:Show()
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); _G.T73 = LTAB:CreateButton(1, "TestButton7_3", UIParent); _G.T73:SetSize(36, 36); _G.T73:SetPoint("CENTER", 0, 0); _G.T73:Show()
 ```
 
 **Enable LibKeyBound**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:EnableKeyBound(_G.T73); print("LibKeyBound enabled: " .. tostring(_G.T73._libKeyBoundEnabled))
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:EnableKeyBound(_G.T73); print("LibKeyBound enabled: " .. tostring(_G.T73._libKeyBoundEnabled))
 ```
 
 **Expected**:
@@ -1120,7 +1120,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T73 then local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:DisableKeyBound(_G.T73); _G.T73:Hide(); _G.T73:SetParent(nil); _G.T73=nil end
+/run if _G.T73 then local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:DisableKeyBound(_G.T73); _G.T73:Hide(); _G.T73:SetParent(nil); _G.T73=nil end
 ```
 
 ---
@@ -1133,7 +1133,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Script**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); if LAB.WoWRetail and C_ActionBar and C_ActionBar.SetActionUIButton then print("Action UI registration available") else print("Action UI registration not available (Classic or API missing)") end
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); if LTAB.WoWRetail and C_ActionBar and C_ActionBar.SetActionUIButton then print("Action UI registration available") else print("Action UI registration not available (Classic or API missing)") end
 ```
 
 **Expected**:
@@ -1144,12 +1144,12 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Create button**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); _G.T74 = LAB:CreateButton(1, "TestButton7_4", UIParent); _G.T74:SetSize(36, 36); _G.T74:SetPoint("CENTER", 0, 0); _G.T74:Show()
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); _G.T74 = LTAB:CreateButton(1, "TestButton7_4", UIParent); _G.T74:SetSize(36, 36); _G.T74:SetPoint("CENTER", 0, 0); _G.T74:Show()
 ```
 
 **Register with Action UI system**:
 ```lua
-/run local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:RegisterActionUI(_G.T74); print("Action UI registered: " .. tostring(_G.T74._actionUIRegistered))
+/run local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:RegisterActionUI(_G.T74); print("Action UI registered: " .. tostring(_G.T74._actionUIRegistered))
 ```
 
 **Expected**:
@@ -1160,7 +1160,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Cleanup**:
 ```lua
-/run if _G.T74 then local LAB = LibStub("LibTotalActionButtons-1.0"); LAB:UnregisterActionUI(_G.T74); _G.T74:Hide(); _G.T74:SetParent(nil); _G.T74=nil end
+/run if _G.T74 then local LTAB = LibStub("LibTotalActionButtons-1.0"); LTAB:UnregisterActionUI(_G.T74); _G.T74:Hide(); _G.T74:SetParent(nil); _G.T74=nil end
 ```
 
 ---
@@ -2664,7 +2664,7 @@ Comprehensive testing for all phases of LibTotalActionButtons implementation.
 
 **Test**: Verify custom flyout attribute
 ```lua
-/run local b=_G.P12_6B;print("Custom flyout:",b:GetAttribute("LABUseCustomFlyout") and "ENABLED" or "DISABLED")
+/run local b=_G.P12_6B;print("Custom flyout:",b:GetAttribute("LTABUseCustomFlyout") and "ENABLED" or "DISABLED")
 ```
 **Expected**: Prints "Custom flyout: ENABLED"
 

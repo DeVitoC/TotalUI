@@ -48,6 +48,12 @@ Libraries\LibTotalActionButtons\LibTotalActionButtons.lua
 # Modules - Load after Core
 # Phase 1: ActionBars
 Modules\ActionBars\ActionBar.lua
+Modules\ActionBars\PetBar.lua
+Modules\ActionBars\StanceBar.lua
+Modules\ActionBars\MicroBar.lua
+Modules\ActionBars\ExtraButtons.lua
+Modules\ActionBars\Keybinds.lua
+Modules\ActionBars\Cooldown.lua
 Modules\ActionBars\ActionBars.lua
 
 # Phase 2: UnitFrames
