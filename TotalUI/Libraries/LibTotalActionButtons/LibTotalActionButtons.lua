@@ -34,9 +34,50 @@ end
 if oldversion then
     LAB.buttons = LAB.buttons or {}
     LAB.activeButtons = LAB.activeButtons or {}
+    LAB.actionButtons = LAB.actionButtons or {}
+    LAB.nonActionButtons = LAB.nonActionButtons or {}
+    LAB.actionButtonsNonUI = LAB.actionButtonsNonUI or {}
+    LAB.NumChargeCooldowns = LAB.NumChargeCooldowns or 0
+
+    -- Convert old array-style button tables to set-style (button as key)
+    -- This handles upgrades from versions that used ipairs/table.insert
+    local function convertToSet(tbl)
+        local needsConversion = false
+        -- Check if table has numeric indices
+        for i = 1, #tbl do
+            if tbl[i] then
+                needsConversion = true
+                break
+            end
+        end
+
+        if needsConversion then
+            local buttons = {}
+            for i = 1, #tbl do
+                if tbl[i] then
+                    buttons[tbl[i]] = true
+                end
+            end
+            -- Clear old array entries
+            for i = 1, #tbl do
+                tbl[i] = nil
+            end
+            -- Copy set entries back
+            for button, v in pairs(buttons) do
+                tbl[button] = v
+            end
+        end
+    end
+
+    convertToSet(LAB.buttons)
+    convertToSet(LAB.activeButtons)
 else
     LAB.buttons = {}
     LAB.activeButtons = {}
+    LAB.actionButtons = {}
+    LAB.nonActionButtons = {}
+    LAB.actionButtonsNonUI = {}
+    LAB.NumChargeCooldowns = 0
 end
 
 -- Version info
@@ -424,69 +465,148 @@ LAB.ButtonType = {
 local ActionTypeUpdateFunctions = {
     -- Query functions
     HasAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return HasAction(self.buttonAction)
     end,
 
     GetActionTexture = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
         return GetActionTexture(self.buttonAction)
     end,
 
     GetActionText = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
         return GetActionText(self.buttonAction)
     end,
 
     GetActionCount = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return 0
+        end
         return GetActionCount(self.buttonAction)
     end,
 
     GetActionCharges = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
         return LAB.Compat.GetActionCharges(self.buttonAction)
     end,
 
     -- State functions
     IsInRange = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
         return IsActionInRange(self.buttonAction)
     end,
 
     IsUsableAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsUsableAction(self.buttonAction)
     end,
 
     IsCurrentAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsCurrentAction(self.buttonAction)
     end,
 
     IsAutoRepeatAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsAutoRepeatAction(self.buttonAction)
     end,
 
     IsAttackAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsAttackAction(self.buttonAction)
     end,
 
     IsEquippedAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsEquippedAction(self.buttonAction)
     end,
 
     IsConsumableAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
         return IsConsumableAction(self.buttonAction)
     end,
 
     -- Cooldown functions
     GetCooldown = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return 0, 0, 0
+        end
         return GetActionCooldown(self.buttonAction)
     end,
 
     GetLossOfControlCooldown = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return 0, 0
+        end
         return LAB.Compat.GetActionLossOfControlCooldown(self.buttonAction)
     end,
 
     -- Spell ID for proc detection
     GetSpellId = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
         local actionType, id = GetActionInfo(self.buttonAction)
         if actionType == "spell" or actionType == "macro" then
             return id
         end
+        return nil
+    end,
+
+    -- Phase 13 Feature #1: Get passive cooldown spell ID (trinkets, etc.)
+    GetPassiveCooldownSpellID = function(self)
+        -- Validate buttonAction first
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
+
+        -- Only available on Retail with the required APIs
+        if not (C_UnitAuras and C_UnitAuras.GetCooldownAuraBySpellID and
+                C_ActionBar and C_ActionBar.GetItemActionOnEquipSpellID) then
+            return nil
+        end
+
+        local actionType, actionID = GetActionInfo(self.buttonAction)
+        local onEquipPassiveSpellID
+
+        -- Check if this action has an on-equip passive spell (items)
+        if actionID then
+            onEquipPassiveSpellID = C_ActionBar.GetItemActionOnEquipSpellID(self.buttonAction)
+        end
+
+        if onEquipPassiveSpellID then
+            return C_UnitAuras.GetCooldownAuraBySpellID(onEquipPassiveSpellID)
+        else
+            -- Check if the spell itself has a passive cooldown
+            local spellID = self.UpdateFunctions.GetSpellId(self)
+            if spellID then
+                return C_UnitAuras.GetCooldownAuraBySpellID(spellID)
+            end
+        end
+
         return nil
     end,
 }
@@ -557,6 +677,9 @@ local SpellTypeUpdateFunctions = {
     end,
 
     GetActionCharges = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
         if LAB.Compat.GetSpellCharges then
             return LAB.Compat.GetSpellCharges(self.buttonAction)
         end
@@ -665,24 +788,39 @@ LAB.SpellTypeUpdateFunctions = SpellTypeUpdateFunctions
 
 local ItemTypeUpdateFunctions = {
     HasAction = function(self)
+        if not self.buttonAction then
+            return false
+        end
         return true  -- Item buttons always have an action
     end,
 
     GetActionTexture = function(self)
+        if not self.buttonAction then
+            return nil
+        end
         return GetItemIcon(self.buttonAction)
     end,
 
     GetActionText = function(self)
+        if not self.buttonAction then
+            return ""
+        end
         local itemName = GetItemInfo(self.buttonAction)
         return itemName or ""
     end,
 
     GetActionCount = function(self)
+        if not self.buttonAction then
+            return 0
+        end
         -- Include bank and charges
         return GetItemCount(self.buttonAction, nil, true)
     end,
 
     GetActionCharges = function(self)
+        if not self.buttonAction then
+            return nil
+        end
         -- Items with on-use effects might have charges
         local hasSpell = GetItemSpell(self.buttonAction)
         if hasSpell and LAB.Compat.GetItemCharges then
@@ -692,14 +830,23 @@ local ItemTypeUpdateFunctions = {
     end,
 
     IsInRange = function(self)
+        if not self.buttonAction then
+            return nil
+        end
         return IsItemInRange(self.buttonAction, "target")
     end,
 
     IsUsableAction = function(self)
+        if not self.buttonAction then
+            return false
+        end
         return IsUsableItem(self.buttonAction)
     end,
 
     IsCurrentAction = function(self)
+        if not self.buttonAction then
+            return false
+        end
         return IsCurrentItem(self.buttonAction)
     end,
 
@@ -712,14 +859,23 @@ local ItemTypeUpdateFunctions = {
     end,
 
     IsEquippedAction = function(self)
+        if not self.buttonAction then
+            return false
+        end
         return IsEquippedItem(self.buttonAction)
     end,
 
     IsConsumableAction = function(self)
+        if not self.buttonAction then
+            return false
+        end
         return IsConsumableItem(self.buttonAction)
     end,
 
     GetCooldown = function(self)
+        if not self.buttonAction then
+            return 0, 0, 0
+        end
         return GetItemCooldown(self.buttonAction)
     end,
 
@@ -728,9 +884,33 @@ local ItemTypeUpdateFunctions = {
     end,
 
     GetSpellId = function(self)
+        if not self.buttonAction then
+            return nil
+        end
         -- Get spell ID from item's on-use effect
         local spellName, spellID = GetItemSpell(self.buttonAction)
         return spellID
+    end,
+
+    GetItemId = function(self)
+        -- Return the item ID or item string
+        -- buttonAction can be itemID (number) or item string/link
+        if type(self.buttonAction) == "number" then
+            return self.buttonAction
+        elseif type(self.buttonAction) == "string" then
+            -- Extract itemID from item string (e.g., "item:12345" or item link)
+            local itemID = tonumber(string.match(self.buttonAction, "item:(%d+)"))
+            if itemID then
+                return itemID
+            end
+            -- Try to get info and extract itemID
+            local itemString = GetItemInfo(self.buttonAction)
+            if itemString then
+                itemID = tonumber(string.match(itemString, "item:(%d+)"))
+                return itemID
+            end
+        end
+        return nil
     end,
 }
 
@@ -879,11 +1059,33 @@ function LAB:CreateButton(actionID, name, parent, config, skipUpdate)
     button.buttonAction = actionID
     button.UpdateFunctions = LAB.ActionTypeUpdateFunctions  -- Phase 2 Step 2.2
 
+    -- Phase 12: Store header if parent is a secure header
+    if parent and parent.WrapScript then
+        button.header = parent
+    end
+
     -- Initialize button
     self:InitializeButton(button)
     self:SetupButtonAction(button, actionID)
     self:StyleButton(button, config)
     self:RegisterButton(button)
+
+    -- Phase 12: Set up secure features if button has a secure header
+    if button.header then
+        -- Initialize secure state attributes
+        button:SetAttribute("state", "0")
+        button:SetAttribute("labtype-0", "action")
+        button:SetAttribute("labaction-0", actionID)
+
+        -- Set up secure snippets for combat functionality
+        self:SetupSecureSnippets(button)
+
+        -- Wrap OnClick for action change detection and flyout handling
+        self:WrapOnClick(button)
+
+        -- Mark that button uses custom flyout system
+        button:SetAttribute("LABUseCustomFlyout", true)
+    end
 
     -- Initial update for action buttons (type-specific buttons skip and do their own update)
     if not skipUpdate then
@@ -903,7 +1105,44 @@ function LAB:InitializeButton(button)
     button._hotkey = button.HotKey or _G[button:GetName() .. "HotKey"]
     button._name = button.Name or _G[button:GetName() .. "Name"]
     button._border = button.Border or _G[button:GetName() .. "Border"]
-    button._cooldown = button.cooldown or _G[button:GetName() .. "Cooldown"]
+
+    -- Create Count fontstring if it doesn't exist
+    if not button._count then
+        button._count = button:CreateFontString(button:GetName() .. "Count", "OVERLAY", "NumberFontNormal")
+        button._count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -2, 2)
+    end
+
+    -- Create HotKey fontstring if it doesn't exist
+    if not button._hotkey then
+        button._hotkey = button:CreateFontString(button:GetName() .. "HotKey", "OVERLAY", "NumberFontNormalSmallGray")
+        button._hotkey:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -2)
+    end
+
+    -- Create Name fontstring if it doesn't exist
+    if not button._name then
+        button._name = button:CreateFontString(button:GetName() .. "Name", "OVERLAY", "GameFontNormalSmall")
+        button._name:SetPoint("BOTTOM", button, "BOTTOM", 0, 2)
+    end
+
+    -- Template cooldown frames don't allow frame level changes (WoW limitation)
+    -- Create our own cooldown frame for proper frame level control
+    local templateCooldown = button.cooldown or _G[button:GetName() .. "Cooldown"]
+    if templateCooldown and not button._cooldown then
+        -- Hide the template's cooldown since we can't control its frame level
+        templateCooldown:Hide()
+        templateCooldown:SetAlpha(0)
+
+        -- Create our own cooldown frame with controllable frame level
+        button._cooldown = CreateFrame("Cooldown", button:GetName() .. "LABCooldown", button, "CooldownFrameTemplate")
+        button._cooldown:SetAllPoints(button._icon)
+        button._cooldown:SetDrawEdge(true)
+        button._cooldown:SetDrawSwipe(true)
+        button._cooldown:SetFrameLevel(button:GetFrameLevel() + 1)
+    elseif not button._cooldown then
+        -- Fallback to template cooldown if it exists
+        button._cooldown = templateCooldown
+    end
+
     button._normalTexture = button.NormalTexture or button:GetNormalTexture()
     button._flash = button.Flash or _G[button:GetName() .. "Flash"]
     button._highlight = button:GetHighlightTexture()
@@ -935,6 +1174,14 @@ function LAB:InitializeButton(button)
     button.SetTooltip = function(self)
         -- Use our type-aware tooltip logic instead of Blizzard's
         LAB:OnButtonEnter(self)
+    end
+
+    -- Override Blizzard's UpdateUsable to prevent conflicts with our UpdateUsable
+    -- Blizzard's ActionButton code tries to call UpdateUsable and expects button.action to be valid
+    -- We handle usable state through our own update system
+    button.UpdateUsable = function(self)
+        -- Redirect to our UpdateUsable implementation
+        LAB:UpdateUsable(self)
     end
 
     -- Phase 9: Initialize advanced features
@@ -994,13 +1241,18 @@ function LAB:SetupButtonScripts(button)
         end
     end)
 
+    -- OnAttributeChanged for secure attribute handling (Feature 14)
+    button:SetScript("OnAttributeChanged", function(self, name, value)
+        LAB:OnAttributeChanged(self, name, value)
+    end)
+
     -- Enable drag by default
     LAB:EnableDragNDrop(button, true)
 end
 
 function LAB:RegisterButton(button)
-    -- Add to registry
-    table.insert(self.buttons, button)
+    -- Add to registry (use button as key for set-style iteration)
+    self.buttons[button] = true
     self.activeButtons[button] = true
 
     -- Register for events
@@ -1483,6 +1735,11 @@ function LAB:UpdateButtonState(button)
         button.action = action  -- ONLY set action property for ACTION type
         button.UpdateFunctions = LAB.ActionTypeUpdateFunctions
         self:DebugPrint(string.format("  Set ACTION: action=%s", tostring(button.action)))
+
+        -- Phase 13 Feature #5: Auto-register with Blizzard's action UI system
+        if button.config and button.config.actionButtonUI and self.WoWRetail then
+            self:RegisterActionUI(button)
+        end
     elseif buttonType == LAB.ButtonType.SPELL then
         button:SetAttribute("type", "spell")
         button:SetAttribute("spell", action)
@@ -1671,6 +1928,12 @@ function LAB:UpdateButton(button)
     self:UpdateVisualState(button)
     self:UpdateGrid(button)
 
+    -- Phase 13 Feature #3 & #4: Auto-update assisted combat frames (Retail only)
+    if self.WoWRetail then
+        self:UpdateAssistedCombatRotationFrame(button)
+        self:UpdatedAssistedHighlightFrame(button)
+    end
+
     -- Fire OnButtonUpdate callback (Phase 7)
     self:FireCallback("OnButtonUpdate", button)
 end
@@ -1709,12 +1972,28 @@ function LAB:UpdateAction(button)
         self:FireCallback("OnButtonContentsChanged", button)
     end
 
+    -- Update button tracking registries for optimization
     if hasAction then
+        LAB.activeButtons[button] = true
+
+        -- Separate action buttons from non-action buttons for efficient event routing
+        if button.buttonType == "action" then
+            LAB.actionButtons[button] = true
+            LAB.nonActionButtons[button] = nil
+        else
+            LAB.actionButtons[button] = nil
+            LAB.nonActionButtons[button] = true
+        end
+
         -- Action exists: ensure normal texture uses default appearance
         if button._normalTexture then
             button._normalTexture:SetVertexColor(1, 1, 1, 1)
         end
     else
+        LAB.activeButtons[button] = nil
+        LAB.actionButtons[button] = nil
+        LAB.nonActionButtons[button] = nil
+
         -- No action: UpdateGrid will handle showing/hiding the grid
         if button._normalTexture then
             button._normalTexture:SetVertexColor(1, 1, 1, 0.5)
@@ -1750,7 +2029,13 @@ function LAB:UpdateIcon(button)
 end
 
 function LAB:UpdateCount(button)
-    if not button or not button._count then return end
+    if not button then return end
+
+    -- If _count doesn't exist, this is a critical error - log it
+    if not button._count then
+        self:Error(string.format("UpdateCount: button._count is nil for button %s", button:GetName() or "unnamed"))
+        return
+    end
 
     -- Check if count should be shown
     local showCount = true
@@ -1787,37 +2072,73 @@ function LAB:UpdateCount(button)
         count = GetActionCount(button.action)
     end
 
-    if count and count > 1 and showCount then
+    -- Debug: Log the count value
+    self:DebugPrint(string.format("UpdateCount: button=%s, count=%s, showCount=%s",
+        button:GetName() or "unnamed", tostring(count), tostring(showCount)))
+
+    if count and count > 0 and showCount then
+        -- Show count for items (standard WoW only shows count > 1, but for testing we show all)
         button._count:SetText(count)
         button._count:Show()
     else
+        -- No items - hide count
         button._count:SetText("")
         button._count:Hide()
     end
 end
 
 --- Phase 4 Step 4.1: Create charge cooldown frame
-function LAB:CreateChargeCooldownFrame(button)
-    if not button then return end
-    if button.chargeCooldown then return end  -- Already exists
+local function CreateChargeCooldownFrame(parent)
+    LAB.NumChargeCooldowns = LAB.NumChargeCooldowns + 1
+    local cooldown = CreateFrame("Cooldown",
+        "LABChargeCooldown" .. LAB.NumChargeCooldowns, parent, "CooldownFrameTemplate")
 
-    button.chargeCooldown = CreateFrame("Cooldown",
-        button:GetName() .. "ChargeCooldown", button, "CooldownFrameTemplate")
+    -- Position relative to icon with small inset (matches LAB-1.0)
+    cooldown:SetPoint("TOPLEFT", parent._icon, "TOPLEFT", 2, -2)
+    cooldown:SetPoint("BOTTOMRIGHT", parent._icon, "BOTTOMRIGHT", -2, 2)
+    cooldown:SetHideCountdownNumbers(true)
+    cooldown:SetDrawSwipe(false)
+    cooldown:SetFrameLevel(parent:GetFrameLevel())
+    return cooldown
+end
 
-    button.chargeCooldown:SetAllPoints(button._icon)
-    button.chargeCooldown:SetDrawEdge(false)
-    button.chargeCooldown:SetDrawBling(false)
-    button.chargeCooldown:SetDrawSwipe(true)
-    button.chargeCooldown:SetSwipeColor(0, 0, 0, 0.8)
-    button.chargeCooldown:SetFrameLevel(button._cooldown:GetFrameLevel() + 1)
+local function ClearChargeCooldown(button)
+    if button.chargeCooldown then
+        if CooldownFrame_Clear then
+            CooldownFrame_Clear(button.chargeCooldown)
+        else
+            button.chargeCooldown:Hide()
+        end
+    end
+end
+
+local function StartChargeCooldown(button, chargeStart, chargeDuration, chargeModRate)
+    if chargeStart == 0 then
+        ClearChargeCooldown(button)
+        return
+    end
+
+    button.chargeCooldown = button.chargeCooldown or CreateChargeCooldownFrame(button)
+
+    if CooldownFrame_Set then
+        CooldownFrame_Set(button.chargeCooldown, chargeStart, chargeDuration, true, true, chargeModRate)
+    else
+        button.chargeCooldown:SetCooldown(chargeStart, chargeDuration)
+    end
 end
 
 --- Phase 4 Step 4.1: Enhanced cooldown update with charge support
 function LAB:UpdateCooldown(button)
     if not button or not button._cooldown then return end
 
+    local locStart, locDuration
     local start, duration, enable, modRate
-    local charges, maxCharges, chargeStart, chargeDuration
+    local charges, maxCharges, chargeStart, chargeDuration, chargeModRate
+
+    -- Check for Loss of Control cooldown first (Retail only)
+    if self.WoWRetail and button.UpdateFunctions and button.UpdateFunctions.GetLossOfControlCooldown then
+        locStart, locDuration = button.UpdateFunctions.GetLossOfControlCooldown(button)
+    end
 
     -- Get cooldown data based on button type
     if button.UpdateFunctions and button.UpdateFunctions.GetCooldown then
@@ -1826,51 +2147,44 @@ function LAB:UpdateCooldown(button)
         start, duration, enable = GetActionCooldown(button.action)
     end
 
+    -- Get charge data
     if button.UpdateFunctions and button.UpdateFunctions.GetActionCharges then
         charges, maxCharges, chargeStart, chargeDuration = button.UpdateFunctions.GetActionCharges(button)
+        chargeModRate = modRate
     elseif button.action and self.Compat and self.Compat.GetActionCharges then
         charges, maxCharges, chargeStart, chargeDuration = self.Compat.GetActionCharges(button.action)
+        chargeModRate = modRate
     end
 
-    -- Check if cooldowns should be shown at all
-    local showCooldown = true
-    if button.config and button.config.showCooldown ~= nil then
-        showCooldown = button.config.showCooldown
-    end
-
-    -- Handle charge-based abilities
-    if charges and maxCharges and maxCharges > 1 then
-        -- Create charge cooldown frame if needed (Retail only)
-        if not button.chargeCooldown and self.WoWRetail then
-            self:CreateChargeCooldownFrame(button)
-        end
-
-        if button.chargeCooldown then
-            if charges < maxCharges and chargeStart and chargeDuration and showCooldown then
-                -- Show next charge cooldown
-                button.chargeCooldown:SetCooldown(chargeStart, chargeDuration)
-                button.chargeCooldown:Show()
-            else
-                button.chargeCooldown:Hide()
+    -- Phase 13 Feature #2: Check for passive cooldowns (trinkets, etc.)
+    if self.WoWRetail and button.UpdateFunctions and button.UpdateFunctions.GetPassiveCooldownSpellID then
+        local passiveCooldownSpellID = button.UpdateFunctions.GetPassiveCooldownSpellID(button)
+        if passiveCooldownSpellID and passiveCooldownSpellID ~= 0 and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+            local auraData = C_UnitAuras.GetPlayerAuraBySpellID(passiveCooldownSpellID)
+            if auraData then
+                -- Use aura cooldown data instead
+                local currentTime = GetTime()
+                local howMuchTimeHasPassed = currentTime - auraData.expirationTime + auraData.duration
+                start = currentTime - howMuchTimeHasPassed
+                duration = auraData.duration
+                enable = 1
+                modRate = 1
             end
         end
-
-        -- Main cooldown only shows when all charges depleted
-        if charges == 0 and start and duration and enable == 1 and showCooldown then
-            button._cooldown:SetCooldown(start, duration)
-            button._cooldown:Show()
-        else
-            button._cooldown:Hide()
-        end
-
-        return
     end
 
-    -- Check for Loss of Control cooldown (takes priority) - Retail only
-    if self.WoWRetail and button.UpdateFunctions and button.UpdateFunctions.GetLossOfControlCooldown then
-        local locStart, locDuration = button.UpdateFunctions.GetLossOfControlCooldown(button)
-        if locStart and locStart > 0 and locDuration and locDuration > 0 then
-            button._cooldown:SetCooldown(locStart, locDuration)
+    -- Set draw bling based on cooldown visibility
+    if button._cooldown.SetDrawBling then
+        button._cooldown:SetDrawBling(button._cooldown:GetEffectiveAlpha() > 0.5)
+    end
+
+    -- Check if LoC cooldown takes priority
+    local hasLocCooldown = locStart and locDuration and locStart > 0 and locDuration > 0
+    local hasCooldown = enable and start and duration and start > 0 and duration > 0
+
+    if hasLocCooldown and ((not hasCooldown) or ((locStart + locDuration) > (start + duration))) then
+        -- Loss of Control cooldown wins
+        if button._cooldown.currentCooldownType ~= "LoC" then
             if button._cooldown.SetEdgeTexture then
                 button._cooldown:SetEdgeTexture("Interface\\Cooldown\\edge-LoC")
             end
@@ -1878,37 +2192,45 @@ function LAB:UpdateCooldown(button)
                 button._cooldown:SetSwipeColor(0.17, 0, 0)
             end
             button._cooldown.currentCooldownType = "LoC"
-            if showCooldown then
-                button._cooldown:Show()
+        end
+
+        if CooldownFrame_Set then
+            CooldownFrame_Set(button._cooldown, locStart, locDuration, true, true, modRate)
+        else
+            button._cooldown:SetCooldown(locStart, locDuration)
+        end
+        ClearChargeCooldown(button)
+    else
+        -- Normal or charge cooldown
+        if button._cooldown.currentCooldownType ~= "normal" then
+            if button._cooldown.SetEdgeTexture then
+                button._cooldown:SetEdgeTexture("Interface\\Cooldown\\edge")
+            end
+            if button._cooldown.SetSwipeColor then
+                button._cooldown:SetSwipeColor(0, 0, 0)
+            end
+            button._cooldown.currentCooldownType = "normal"
+        end
+
+        -- Handle charge cooldowns
+        if charges and maxCharges and maxCharges > 1 and charges < maxCharges then
+            if chargeStart and chargeDuration then
+                StartChargeCooldown(button, chargeStart, chargeDuration, chargeModRate)
+            end
+        else
+            ClearChargeCooldown(button)
+        end
+
+        -- Set main cooldown
+        if CooldownFrame_Set then
+            CooldownFrame_Set(button._cooldown, start, duration, enable, false, modRate)
+        else
+            if start and duration and enable == 1 then
+                button._cooldown:SetCooldown(start, duration)
             else
                 button._cooldown:Hide()
             end
-            return
         end
-    end
-
-    -- Normal cooldown
-    if start and duration and enable == 1 and duration > 0 then
-        button._cooldown:SetCooldown(start, duration)
-        if button._cooldown.SetEdgeTexture then
-            button._cooldown:SetEdgeTexture("Interface\\Cooldown\\edge")
-        end
-        if button._cooldown.SetSwipeColor then
-            button._cooldown:SetSwipeColor(0, 0, 0, 0.8)
-        end
-        button._cooldown.currentCooldownType = "normal"
-        if showCooldown then
-            button._cooldown:Show()
-        else
-            button._cooldown:Hide()
-        end
-    else
-        button._cooldown:Hide()
-    end
-
-    -- Hide charge cooldown if not charge-based
-    if button.chargeCooldown then
-        button.chargeCooldown:Hide()
     end
 end
 
@@ -1942,9 +2264,9 @@ end
 
 --- Show overlay glow for all buttons with this spell
 function LAB:ShowOverlayGlowForSpell(spellID)
-    -- Update all buttons with this spell
-    for _, button in pairs(self.buttons or {}) do
-        if button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
+    -- buttons is a set where keys are button objects, values are true
+    for button in pairs(self.buttons or {}) do
+        if button and button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
             local buttonSpellID = button.UpdateFunctions.GetSpellId(button)
             if buttonSpellID == spellID then
                 self:ShowOverlayGlow(button)
@@ -1955,8 +2277,9 @@ end
 
 --- Hide overlay glow for all buttons with this spell
 function LAB:HideOverlayGlowForSpell(spellID)
-    for _, button in pairs(self.buttons or {}) do
-        if button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
+    -- buttons is a set where keys are button objects, values are true
+    for button in pairs(self.buttons or {}) do
+        if button and button.UpdateFunctions and button.UpdateFunctions.GetSpellId then
             local buttonSpellID = button.UpdateFunctions.GetSpellId(button)
             if buttonSpellID == spellID then
                 self:HideOverlayGlow(button)
@@ -2054,6 +2377,20 @@ function LAB:UpdateSpellOverlay(button)
     end
 end
 
+--- Standalone overlay glow helper functions (matches LAB-1.0 API)
+local IsSpellOverlayed = C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed or IsSpellOverlayed
+
+function LAB:UpdateOverlayGlow(button)
+    if not button or not button.UpdateFunctions then return end
+
+    local spellID = button.UpdateFunctions.GetSpellId and button.UpdateFunctions.GetSpellId(button)
+    if spellID and IsSpellOverlayed and IsSpellOverlayed(spellID) then
+        self:ShowOverlayGlow(button)
+    else
+        self:HideOverlayGlow(button)
+    end
+end
+
 -----------------------------------
 -- NEW ACTION HIGHLIGHTING - Phase 4 Step 4.3
 -----------------------------------
@@ -2106,6 +2443,11 @@ function LAB:UpdateNewActionHighlight(button)
     end
 end
 
+--- LAB-1.0 compatible alias
+function LAB:UpdateNewAction(button)
+    return self:UpdateNewActionHighlight(button)
+end
+
 -----------------------------------
 -- BUTTON UPDATE HELPERS
 -----------------------------------
@@ -2120,8 +2462,22 @@ function LAB:UpdateHotkey(button)
         showHotkey = button.config.showHotkey
     end
 
-    local key = GetBindingKey("ACTIONBUTTON" .. action)
-    if key and showHotkey then
+    -- Check if hideElements.hotkey is set
+    local hideHotkey = false
+    if button.config and button.config.hideElements and button.config.hideElements.hotkey then
+        hideHotkey = true
+    end
+
+    local key = button.UpdateFunctions and button.UpdateFunctions.GetHotkey and button.UpdateFunctions.GetHotkey(button)
+    if not key and action then
+        key = GetBindingKey("ACTIONBUTTON" .. action)
+    end
+
+    if not key or key == "" or hideHotkey or not showHotkey then
+        -- Use RANGE_INDICATOR as placeholder for range coloring
+        button._hotkey:SetText(RANGE_INDICATOR or "•")
+        button._hotkey:Hide()
+    else
         -- Abbreviate the key text
         key = key:gsub("SHIFT%-", "S")
         key = key:gsub("CTRL%-", "C")
@@ -2134,28 +2490,481 @@ function LAB:UpdateHotkey(button)
 
         button._hotkey:SetText(key)
         button._hotkey:Show()
-    else
-        button._hotkey:SetText("")
-        button._hotkey:Hide()
     end
 end
 
---- Phase 4 Step 4.4: Update equipped item border
+--- LAB-1.0 compatible alias
+function LAB:UpdateHotkeys(button)
+    return self:UpdateHotkey(button)
+end
+
+--- Phase 4 Step 4.4: Update equipped item border and quality borders
 function LAB:UpdateEquippedBorder(button)
     if not button or not button._border then return end
-    if not button.UpdateFunctions or not button.UpdateFunctions.IsEquippedAction then return end
 
-    local isEquipped = button.UpdateFunctions.IsEquippedAction(button)
+    -- Don't override custom borders set via SetBorderTexture
+    if button._customBorder then return end
 
-    if isEquipped then
-        button._border:SetVertexColor(0, 1.0, 0, 0.35)  -- Green
+    local showBorder = false
+    local r, g, b, a = 1, 1, 1, 0.5
+
+    -- Check if item is equipped (takes priority)
+    if button.UpdateFunctions and button.UpdateFunctions.IsEquippedAction then
+        local isEquipped = button.UpdateFunctions.IsEquippedAction(button)
+        if isEquipped then
+            r, g, b, a = 0, 1.0, 0, 0.35  -- Green for equipped
+            showBorder = true
+        end
+    end
+
+    -- Check for item quality border (if not equipped)
+    if not showBorder and button.UpdateFunctions then
+        local itemID
+        if button.UpdateFunctions.GetItemId then
+            itemID = button.UpdateFunctions.GetItemId(button)
+        end
+
+        if itemID then
+            local quality = select(3, GetItemInfo(itemID))
+            if quality and quality > Enum.ItemQuality.Common then
+                -- Show quality border for uncommon+ items
+                local qualityColor = ITEM_QUALITY_COLORS[quality]
+                if qualityColor then
+                    r, g, b, a = qualityColor.r, qualityColor.g, qualityColor.b, 0.5
+                    showBorder = true
+                end
+            end
+        end
+    end
+
+    -- Apply border
+    if showBorder and (not button.config or button.config.showBorder ~= false) then
+        button._border:SetVertexColor(r, g, b, a)
         button._border:Show()
     else
-        -- Check if border should be shown for other reasons
-        -- If not, hide it
-        if not button.config or not button.config.showBorder then
+        button._border:Hide()
+    end
+end
+
+--- Set border texture/style (Feature 16: Border style/texture support)
+-- Pass nil for texture to clear custom border and return to automatic border behavior
+-- For solid textures, creates 4-edge border. For border textures, uses single overlay.
+function LAB:SetBorderTexture(button, texture, size, offset)
+    if not button then return end
+
+    -- If texture is nil, clear custom border flag and return to automatic behavior
+    if texture == nil then
+        button._customBorder = nil
+
+        -- Clean up edge borders if they exist
+        if button._borderEdges then
+            for _, edge in pairs(button._borderEdges) do
+                edge:Hide()
+            end
+        end
+
+        -- Show original border and update it
+        if button._border then
+            button._border:Show()
+        end
+
+        self:UpdateEquippedBorder(button)
+        return
+    end
+
+    -- Mark that a custom border has been set
+    button._customBorder = true
+
+    -- Determine border thickness (how much larger than button)
+    local buttonSize = button:GetWidth()
+    local borderThickness = 2
+    if size and size > buttonSize then
+        borderThickness = (size - buttonSize) / 2
+    end
+
+    -- For solid textures like WHITE8X8, create 4-edge border system
+    if texture:find("WHITE8X8") or texture:find("white") then
+        -- Hide the original border texture
+        if button._border then
             button._border:Hide()
         end
+
+        -- Create edge border textures if they don't exist
+        if not button._borderEdges then
+            button._borderEdges = {}
+
+            -- Top edge
+            button._borderEdges.top = button:CreateTexture(nil, "OVERLAY", nil, 7)
+            button._borderEdges.top:SetTexture(texture)
+
+            -- Bottom edge
+            button._borderEdges.bottom = button:CreateTexture(nil, "OVERLAY", nil, 7)
+            button._borderEdges.bottom:SetTexture(texture)
+
+            -- Left edge
+            button._borderEdges.left = button:CreateTexture(nil, "OVERLAY", nil, 7)
+            button._borderEdges.left:SetTexture(texture)
+
+            -- Right edge
+            button._borderEdges.right = button:CreateTexture(nil, "OVERLAY", nil, 7)
+            button._borderEdges.right:SetTexture(texture)
+        else
+            -- Update existing edge textures
+            for _, edge in pairs(button._borderEdges) do
+                edge:SetTexture(texture)
+            end
+        end
+
+        -- Position the edges to create a frame border
+        local offsetX = offset and offset.x or 0
+        local offsetY = offset and offset.y or 0
+
+        -- Top edge - horizontal bar above button
+        button._borderEdges.top:ClearAllPoints()
+        button._borderEdges.top:SetPoint("BOTTOMLEFT", button, "TOPLEFT", offsetX, offsetY)
+        button._borderEdges.top:SetPoint("BOTTOMRIGHT", button, "TOPRIGHT", offsetX, offsetY)
+        button._borderEdges.top:SetHeight(borderThickness)
+
+        -- Bottom edge - horizontal bar below button
+        button._borderEdges.bottom:ClearAllPoints()
+        button._borderEdges.bottom:SetPoint("TOPLEFT", button, "BOTTOMLEFT", offsetX, offsetY)
+        button._borderEdges.bottom:SetPoint("TOPRIGHT", button, "BOTTOMRIGHT", offsetX, offsetY)
+        button._borderEdges.bottom:SetHeight(borderThickness)
+
+        -- Left edge - vertical bar on left side (including top/bottom edges)
+        button._borderEdges.left:ClearAllPoints()
+        button._borderEdges.left:SetPoint("TOPRIGHT", button, "TOPLEFT", offsetX, offsetY + borderThickness)
+        button._borderEdges.left:SetPoint("BOTTOMRIGHT", button, "BOTTOMLEFT", offsetX, offsetY - borderThickness)
+        button._borderEdges.left:SetWidth(borderThickness)
+
+        -- Right edge - vertical bar on right side (including top/bottom edges)
+        button._borderEdges.right:ClearAllPoints()
+        button._borderEdges.right:SetPoint("TOPLEFT", button, "TOPRIGHT", offsetX, offsetY + borderThickness)
+        button._borderEdges.right:SetPoint("BOTTOMLEFT", button, "BOTTOMRIGHT", offsetX, offsetY - borderThickness)
+        button._borderEdges.right:SetWidth(borderThickness)
+
+        -- Show all edges
+        for _, edge in pairs(button._borderEdges) do
+            edge:Show()
+        end
+
+        -- Store reference to edges on button._border for color setting compatibility
+        -- When users call button._border:SetVertexColor(), forward to edges
+        if button._border then
+            local originalSetVertexColor = button._border.SetVertexColor
+            button._border.SetVertexColor = function(self, r, g, b, a)
+                if button._borderEdges then
+                    for _, edge in pairs(button._borderEdges) do
+                        edge:SetVertexColor(r, g, b, a)
+                    end
+                else
+                    originalSetVertexColor(self, r, g, b, a)
+                end
+            end
+        end
+
+    else
+        -- For non-solid textures (actual border textures), use the original single-texture approach
+        if not button._border then return end
+
+        -- Hide edge borders if they exist
+        if button._borderEdges then
+            for _, edge in pairs(button._borderEdges) do
+                edge:Hide()
+            end
+        end
+
+        -- Show and configure the original border texture
+        button._border:Show()
+        button._border:SetTexture(texture)
+
+        if size then
+            button._border:SetSize(size, size)
+        end
+
+        -- Position border relative to icon
+        button._border:ClearAllPoints()
+        if offset then
+            button._border:SetPoint("CENTER", button._icon or button, "CENTER", offset.x or 0, offset.y or 0)
+        else
+            if button._icon then
+                button._border:SetAllPoints(button._icon)
+            end
+        end
+
+        button._border:SetDrawLayer("OVERLAY", 7)
+    end
+end
+
+--- Update frame levels for all button elements (Feature 23: Frame level management)
+function LAB:UpdateFrameLevels(button)
+    if not button then return end
+
+    local baseLevel = button:GetFrameLevel()
+
+    -- Set relative frame levels for all elements
+    if button._icon then
+        button._icon:SetDrawLayer("ARTWORK", 0)
+    end
+
+    if button._normalTexture then
+        button._normalTexture:SetDrawLayer("BACKGROUND", 0)
+    end
+
+    if button._border then
+        button._border:SetDrawLayer("BORDER", 0)
+    end
+
+    if button._count then
+        button._count:SetDrawLayer("OVERLAY", 1)
+    end
+
+    if button._hotkey then
+        button._hotkey:SetDrawLayer("OVERLAY", 1)
+    end
+
+    if button._name then
+        button._name:SetDrawLayer("OVERLAY", 1)
+    end
+
+    if button._cooldown then
+        -- Cooldown frames from ActionBarButtonTemplate are tricky
+        -- They often resist frame level changes due to template management
+        -- Try multiple approaches to ensure proper layering
+
+        -- Approach 1: Set parent explicitly
+        if button._cooldown:GetParent() ~= button then
+            button._cooldown:SetParent(button)
+        end
+
+        -- Approach 2: Set frame level (may not work with some templates)
+        button._cooldown:SetFrameLevel(baseLevel + 1)
+
+        -- Approach 3: If frame level didn't stick, try using SetFrameStrata
+        -- to at least ensure it's in the correct strata
+        C_Timer.After(0, function()
+            if button._cooldown and button._cooldown:GetFrameLevel() == baseLevel then
+                -- Frame level didn't change, cooldown is resisting
+                -- Force it by changing the button's base level
+                button:SetFrameLevel(baseLevel)
+                if button._cooldown.SetFrameLevel then
+                    button._cooldown:SetFrameLevel(baseLevel + 1)
+                end
+            end
+        end)
+    end
+
+    if button.chargeCooldown then
+        if button.chargeCooldown:GetParent() ~= button then
+            button.chargeCooldown:SetParent(button)
+        end
+        button.chargeCooldown:SetFrameLevel(baseLevel + 2)
+    end
+
+    if button._overlayGlow then
+        button._overlayGlow:SetFrameLevel(baseLevel + 5)
+    end
+
+    if button.NewActionTexture then
+        button.NewActionTexture:SetDrawLayer("OVERLAY", 2)
+    end
+end
+
+--- Show interrupt display (Feature 20: Interrupt display support)
+function LAB:ShowInterruptDisplay(button)
+    if not button then return end
+
+    -- Create interrupt display if it doesn't exist or if it's missing animGroup
+    if not button.InterruptDisplay or not button.InterruptDisplay.animGroup then
+        -- Clean up old version if it exists
+        if button.InterruptDisplay then
+            if button.InterruptDisplay.Hide then
+                button.InterruptDisplay:Hide()
+            end
+            button.InterruptDisplay = nil
+        end
+
+        -- Create a frame to hold the texture (frames can have animations, textures can't)
+        button.InterruptDisplay = CreateFrame("Frame", nil, button)
+        button.InterruptDisplay:SetAllPoints(button._icon or button)
+        button.InterruptDisplay:SetFrameLevel(button:GetFrameLevel() + 10)
+
+        -- Create the star texture
+        local starTexture = button.InterruptDisplay:CreateTexture(nil, "OVERLAY")
+        starTexture:SetAllPoints()
+        starTexture:SetTexture("Interface\\Cooldown\\star4")
+        starTexture:SetBlendMode("ADD")
+        button.InterruptDisplay.texture = starTexture
+
+        -- Create animation group for the star burst effect
+        local animGroup = button.InterruptDisplay:CreateAnimationGroup()
+        button.InterruptDisplay.animGroup = animGroup
+
+        -- Scale animation (burst outward) - longer and more dramatic
+        local scale = animGroup:CreateAnimation("Scale")
+        scale:SetOrder(1)
+        scale:SetDuration(0.6)
+        scale:SetScale(2.0, 2.0)
+        scale:SetOrigin("CENTER", 0, 0)
+
+        -- Alpha fade in - quick
+        local fadeIn = animGroup:CreateAnimation("Alpha")
+        fadeIn:SetOrder(1)
+        fadeIn:SetDuration(0.2)
+        fadeIn:SetFromAlpha(0)
+        fadeIn:SetToAlpha(1)
+
+        -- Alpha fade out - slower
+        local fadeOut = animGroup:CreateAnimation("Alpha")
+        fadeOut:SetOrder(2)
+        fadeOut:SetDuration(0.8)
+        fadeOut:SetFromAlpha(1)
+        fadeOut:SetToAlpha(0)
+
+        -- Rotation animation (spin) - full rotation
+        local rotate = animGroup:CreateAnimation("Rotation")
+        rotate:SetOrder(1)
+        rotate:SetDuration(1.0)
+        rotate:SetDegrees(180)
+        rotate:SetOrigin("CENTER", 0, 0)
+
+        -- Reset after animation finishes
+        animGroup:SetScript("OnFinished", function()
+            button.InterruptDisplay:SetAlpha(0)
+        end)
+
+        -- Start hidden
+        button.InterruptDisplay:SetAlpha(0)
+    end
+
+    -- Play the star burst animation
+    button.InterruptDisplay:Show()
+    button.InterruptDisplay:SetAlpha(1)
+    if button.InterruptDisplay.texture then
+        button.InterruptDisplay.texture:Show()
+        button.InterruptDisplay.texture:SetAlpha(1)
+    end
+
+    -- Debug: verify frame is visible
+    print("InterruptDisplay shown:", button.InterruptDisplay:IsShown())
+    print("Texture shown:", button.InterruptDisplay.texture:IsShown())
+    print("Frame level:", button.InterruptDisplay:GetFrameLevel())
+    print("Playing animation...")
+
+    button.InterruptDisplay.animGroup:Stop()
+    button.InterruptDisplay.animGroup:Play()
+
+    -- Debug: check if animation is playing
+    print("Animation playing:", button.InterruptDisplay.animGroup:IsPlaying())
+end
+
+--- Hide interrupt display
+function LAB:HideInterruptDisplay(button)
+    if button and button.InterruptDisplay then
+        button.InterruptDisplay:SetAlpha(0)
+    end
+end
+
+--- Spell activation alert handling (Feature 17 & 22: Spell activation alerts + frame management)
+local spellAlertFramePool = {}
+local activeSpellAlerts = {}
+
+function LAB:GetSpellAlertFrame()
+    -- Try to get a frame from the pool
+    for i, frame in ipairs(spellAlertFramePool) do
+        if not frame:IsShown() then
+            return frame
+        end
+    end
+
+    -- Create new frame if pool is empty
+    local frame = CreateFrame("Frame", nil, UIParent)
+    frame:SetSize(256, 256)
+    frame.texture = frame:CreateTexture(nil, "OVERLAY", nil, 7)
+    frame.texture:SetAllPoints()
+    frame.texture:SetBlendMode("ADD")
+    frame.animGroup = frame.texture:CreateAnimationGroup()
+
+    -- Create animation
+    local anim = frame.animGroup:CreateAnimation("Alpha")
+    anim:SetFromAlpha(1)
+    anim:SetToAlpha(0)
+    anim:SetDuration(0.5)
+    anim:SetSmoothing("OUT")
+
+    frame.animGroup:SetScript("OnFinished", function(ag)
+        ag:GetParent():Hide()
+    end)
+
+    table.insert(spellAlertFramePool, frame)
+    return frame
+end
+
+function LAB:ShowSpellAlert(button, spellID)
+    if not self.WoWRetail or not button then return end
+
+    local overlayData
+    if C_SpellActivationOverlay and C_SpellActivationOverlay.GetOverlayInfo then
+        overlayData = C_SpellActivationOverlay.GetOverlayInfo(spellID)
+    end
+
+    -- If no overlay data, create default for testing/manual triggering
+    if not overlayData then
+        overlayData = {
+            texture = "Interface\\Cooldown\\star4",
+            scale = 1.5,
+            r = 1.0,
+            g = 0.8,
+            b = 0.0
+        }
+    end
+
+    local frame = self:GetSpellAlertFrame()
+    frame.texture:SetTexture(overlayData.texture or "Interface\\Cooldown\\star4")
+    frame:SetPoint("CENTER", button, "CENTER")
+    frame:SetScale(overlayData.scale or 1.0)
+
+    -- Set color if provided
+    if overlayData.r then
+        frame.texture:SetVertexColor(overlayData.r, overlayData.g or 1.0, overlayData.b or 1.0)
+    end
+
+    frame:Show()
+    frame.animGroup:Play()
+
+    activeSpellAlerts[button] = frame
+end
+
+function LAB:HideSpellAlert(button)
+    local frame = activeSpellAlerts[button]
+    if frame then
+        frame:Hide()
+        frame.animGroup:Stop()
+        activeSpellAlerts[button] = nil
+    end
+end
+
+function LAB:UpdateSpellActivationAlert(button)
+    if not self.WoWRetail or not button or not button.UpdateFunctions then return end
+
+    local spellID = button.UpdateFunctions.GetSpellId and button.UpdateFunctions.GetSpellId(button)
+    if not spellID then
+        self:HideSpellAlert(button)
+        return
+    end
+
+    -- Check if spell has activation overlay
+    local isOverlayed = false
+    if C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed then
+        isOverlayed = C_SpellActivationOverlay.IsSpellOverlayed(spellID)
+    elseif IsSpellOverlayed then
+        isOverlayed = IsSpellOverlayed(spellID)
+    end
+
+    if isOverlayed then
+        self:ShowSpellAlert(button, spellID)
+    else
+        self:HideSpellAlert(button)
     end
 end
 
@@ -2184,8 +2993,31 @@ function LAB:UpdateUsable(button)
         manaColoringMode = button.config.outOfManaColoring
     end
 
+    -- Get desaturation setting from config (default true)
+    local desaturateUnusable = true
+    if button.config and button.config.desaturateUnusable ~= nil then
+        desaturateUnusable = button.config.desaturateUnusable
+    end
+
+    -- Check if button is out of range for desaturation
+    local outOfRange = button._state.outOfRange or false
+
+    -- Guard against uninitialized button (called before StyleButton)
+    if not button._colors then
+        -- Just set basic usability without colors
+        if isUsable then
+            button._icon:SetDesaturated(false)
+            button._icon:SetVertexColor(1, 1, 1)
+        else
+            button._icon:SetDesaturated(desaturateUnusable)
+            button._icon:SetVertexColor(0.4, 0.4, 0.4)
+        end
+        return
+    end
+
     if isUsable then
-        -- Usable - normal color
+        -- Usable - normal color, no desaturation
+        button._icon:SetDesaturated(false)
         button._icon:SetVertexColor(1, 1, 1)
         -- Also restore hotkey color if it was tinted
         if button._hotkey then
@@ -2200,21 +3032,38 @@ function LAB:UpdateUsable(button)
         -- Out of power - apply coloring based on mode
         local color = button._colors.mana
         if manaColoringMode == "button" then
+            button._icon:SetDesaturated(desaturateUnusable)
             button._icon:SetVertexColor(color[1], color[2], color[3])
         elseif manaColoringMode == "hotkey" and button._hotkey then
+            button._icon:SetDesaturated(false)
             button._icon:SetVertexColor(1, 1, 1) -- Keep icon normal
             button._hotkey:SetVertexColor(color[1], color[2], color[3])
+        else
+            button._icon:SetDesaturated(false)
         end
         -- "none" mode - don't color anything
     else
-        -- Not usable - gray (always apply to icon, regardless of coloring mode)
+        -- Not usable - gray and possibly desaturate
         local color = button._colors.unusable
+        button._icon:SetDesaturated(desaturateUnusable)
         button._icon:SetVertexColor(color[1], color[2], color[3])
+    end
+
+    -- Handle out of range coloring with desaturation
+    if outOfRange and manaColoringMode == "button" then
+        button._icon:SetDesaturated(true)
+        local rangeColor = button._colors.range
+        button._icon:SetVertexColor(rangeColor[1], rangeColor[2], rangeColor[3])
     end
 end
 
 function LAB:UpdateRange(button)
     if not button or not button._icon then return end
+
+    -- Initialize rangeTimer if not set (used for throttling)
+    if button.rangeTimer == nil then
+        button.rangeTimer = -1
+    end
 
     -- Use UpdateFunctions if available (Phase 2)
     local inRange
@@ -2226,7 +3075,9 @@ function LAB:UpdateRange(button)
     end
 
     button._state = button._state or {}
+    local previousInRange = button._state.inRange
     button._state.inRange = inRange
+    button._state.outOfRange = (inRange == false)
 
     -- Only apply range coloring if the action is usable
     if not button._state.usable then return end
@@ -2242,6 +3093,11 @@ function LAB:UpdateRange(button)
         return
     end
 
+    -- Guard against uninitialized button (called before StyleButton)
+    if not button._colors then
+        return
+    end
+
     local color = button._colors.range
 
     if inRange == false then
@@ -2249,6 +3105,10 @@ function LAB:UpdateRange(button)
         if coloringMode == "button" then
             button._icon:SetVertexColor(color[1], color[2], color[3])
         elseif coloringMode == "hotkey" and button._hotkey then
+            -- Show RANGE_INDICATOR when out of range
+            if button._hotkey:GetText() == RANGE_INDICATOR then
+                button._hotkey:Show()
+            end
             button._hotkey:SetVertexColor(color[1], color[2], color[3])
         end
     elseif inRange == true then
@@ -2256,6 +3116,10 @@ function LAB:UpdateRange(button)
         if coloringMode == "button" then
             button._icon:SetVertexColor(1, 1, 1)
         elseif coloringMode == "hotkey" and button._hotkey then
+            -- Hide RANGE_INDICATOR when in range
+            if button._hotkey:GetText() == RANGE_INDICATOR then
+                button._hotkey:Hide()
+            end
             -- Restore hotkey to its configured color or white
             if button.config and button.config.text and button.config.text.hotkey and button.config.text.hotkey.color then
                 local hkColor = button.config.text.hotkey.color
@@ -2266,6 +3130,25 @@ function LAB:UpdateRange(button)
         end
     end
     -- nil means no range restriction
+end
+
+--- Update range timer for throttled range checking (matches LAB-1.0)
+function LAB:UpdateRangeTimer(button, elapsed)
+    if not button or not button.rangeTimer then return end
+
+    -- Reset timer if button has no action
+    if not button._state or not button._state.hasAction then
+        button.rangeTimer = nil
+        return
+    end
+
+    -- Throttle range updates to every 0.2 seconds
+    if button.rangeTimer < 0 then
+        self:UpdateRange(button)
+        button.rangeTimer = 0.2
+    else
+        button.rangeTimer = button.rangeTimer - elapsed
+    end
 end
 
 function LAB:UpdateVisualState(button)
@@ -2350,6 +3233,70 @@ function LAB:OnButtonUpdate(button, elapsed)
     -- Update flash animation
     if button._isFlashing then
         self:UpdateFlash(button, elapsed)
+    end
+end
+
+--- Handle secure attribute changes (Feature 14: OnAttributeChanged handler)
+function LAB:OnAttributeChanged(button, name, value)
+    if not button then return end
+
+    -- Update button when certain attributes change
+    if name == "type" then
+        -- Type changed - update button type and action
+        if value == "spell" then
+            button.buttonType = self.ButtonType.SPELL
+            button.UpdateFunctions = self.SpellTypeUpdateFunctions
+        elseif value == "item" then
+            button.buttonType = self.ButtonType.ITEM
+            button.UpdateFunctions = self.ItemTypeUpdateFunctions
+        elseif value == "macro" then
+            button.buttonType = self.ButtonType.MACRO
+            button.UpdateFunctions = self.MacroTypeUpdateFunctions
+        elseif value == "action" then
+            button.buttonType = self.ButtonType.ACTION
+            button.UpdateFunctions = self.ActionTypeUpdateFunctions
+        end
+        if not InCombatLockdown() then
+            self:UpdateButton(button)
+        end
+    elseif name == "spell" then
+        -- Spell ID changed - update buttonAction
+        button.buttonType = self.ButtonType.SPELL
+        button.buttonAction = tonumber(value)
+        button.UpdateFunctions = self.SpellTypeUpdateFunctions
+        if not InCombatLockdown() then
+            self:UpdateButton(button)
+        end
+    elseif name == "item" then
+        -- Item changed - update buttonAction
+        button.buttonType = self.ButtonType.ITEM
+        button.buttonAction = value
+        button.UpdateFunctions = self.ItemTypeUpdateFunctions
+        if not InCombatLockdown() then
+            self:UpdateButton(button)
+        end
+    elseif name == "macro" then
+        -- Macro changed - update buttonAction
+        button.buttonType = self.ButtonType.MACRO
+        button.buttonAction = tonumber(value)
+        button.UpdateFunctions = self.MacroTypeUpdateFunctions
+        if not InCombatLockdown() then
+            self:UpdateButton(button)
+        end
+    elseif name == "action" then
+        -- Action changed - update buttonAction
+        button.buttonType = self.ButtonType.ACTION
+        button.action = tonumber(value)
+        button.buttonAction = tonumber(value)
+        button.UpdateFunctions = self.ActionTypeUpdateFunctions
+        if not InCombatLockdown() then
+            self:UpdateButton(button)
+        end
+    elseif name == "state" then
+        -- State attribute changed
+        if not InCombatLockdown() then
+            self:UpdateButton(button)
+        end
     end
 end
 
@@ -3566,7 +4513,8 @@ end
 function LAB:ForAllButtons(func, ...)
     if type(func) ~= "function" then return end
 
-    for _, button in ipairs(self.buttons) do
+    -- self.buttons is a set where keys are button objects
+    for button in pairs(self.buttons) do
         func(button, ...)
     end
 end
@@ -3578,8 +4526,9 @@ end
 function LAB:ForAllButtonsWithSpell(spellID, func, ...)
     if not spellID or type(func) ~= "function" then return end
 
-    for _, button in ipairs(self.activeButtons) do
-        if button.buttonType == "spell" and button.buttonAction == spellID then
+    -- self.activeButtons is a set where keys are button objects
+    for button in pairs(self.activeButtons) do
+        if button.buttonType == self.ButtonType.SPELL and button.buttonAction == spellID then
             func(button, ...)
         end
     end
@@ -3592,8 +4541,9 @@ end
 function LAB:ForAllButtonsWithItem(itemID, func, ...)
     if not itemID or type(func) ~= "function" then return end
 
-    for _, button in ipairs(self.activeButtons) do
-        if button.buttonType == "item" and button.buttonAction == itemID then
+    -- self.activeButtons is a set where keys are button objects
+    for button in pairs(self.activeButtons) do
+        if button.buttonType == self.ButtonType.ITEM and button.buttonAction == itemID then
             func(button, ...)
         end
     end
@@ -3606,8 +4556,9 @@ end
 function LAB:ForAllButtonsWithAction(actionID, func, ...)
     if not actionID or type(func) ~= "function" then return end
 
-    for _, button in ipairs(self.activeButtons) do
-        if button.buttonType == "action" and button.buttonAction == actionID then
+    -- self.activeButtons is a set where keys are button objects
+    for button in pairs(self.activeButtons) do
+        if button.buttonType == self.ButtonType.ACTION and button.buttonAction == actionID then
             func(button, ...)
         end
     end
@@ -3646,15 +4597,8 @@ end)
 function LAB:TrackActiveButton(button)
     if not button then return end
 
-    -- Check if already tracked
-    for _, btn in ipairs(self.activeButtons) do
-        if btn == button then
-            return -- Already tracked
-        end
-    end
-
-    -- Add to active buttons
-    table.insert(self.activeButtons, button)
+    -- activeButtons is a set where keys are button objects
+    self.activeButtons[button] = true
 end
 
 --- Remove button from active tracking (called when button is cleared)
@@ -3662,12 +4606,8 @@ end
 function LAB:UntrackActiveButton(button)
     if not button then return end
 
-    for i, btn in ipairs(self.activeButtons) do
-        if btn == button then
-            table.remove(self.activeButtons, i)
-            return
-        end
-    end
+    -- activeButtons is a set where keys are button objects
+    self.activeButtons[button] = nil
 end
 
 --- Check if button has content (action, spell, item, macro, or custom)
@@ -3713,6 +4653,10 @@ function LAB:EnsureChargeCooldown(button)
     chargeCooldown:SetDrawEdge(true)
     chargeCooldown:SetDrawSwipe(true)
     chargeCooldown:SetHideCountdownNumbers(false)
+
+    -- Set frame level higher than regular cooldown
+    local baseLevel = button:GetFrameLevel()
+    chargeCooldown:SetFrameLevel(baseLevel + 2)
 
     button.chargeCooldown = chargeCooldown
     return chargeCooldown
@@ -3940,13 +4884,51 @@ LAB.flyoutButtonPool = {}
 function LAB:CreateFlyoutButton(parent, index)
     local name = parent:GetName() .. "Flyout" .. index
 
-    -- Always create a new button with the correct name (frames can't be renamed)
-    local button = CreateFrame("CheckButton", name, UIParent, "ActionBarButtonTemplate, SecureActionButtonTemplate")
+    -- Don't use ActionBarButtonTemplate - it conflicts with Blizzard's action bar code
+    -- Use SecureActionButtonTemplate only
+    local button = CreateFrame("CheckButton", name, UIParent, "SecureActionButtonTemplate")
 
     if not button then
         self:Error("CreateFlyoutButton: Failed to create flyout button!", 2)
         return nil
     end
+
+    -- Manually create button elements (since we're not using ActionBarButtonTemplate)
+    button:SetSize(36, 36)
+
+    -- Create icon
+    button.icon = button:CreateTexture(name .. "Icon", "BACKGROUND")
+    button.icon:SetAllPoints()
+    button.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+    -- Create count
+    button.Count = button:CreateFontString(name .. "Count", "OVERLAY", "NumberFontNormal")
+    button.Count:SetPoint("BOTTOMRIGHT", -2, 2)
+
+    -- Create hotkey
+    button.HotKey = button:CreateFontString(name .. "HotKey", "OVERLAY", "NumberFontNormalSmallGray")
+    button.HotKey:SetPoint("TOPLEFT", 1, -2)
+
+    -- Create name
+    button.Name = button:CreateFontString(name .. "Name", "OVERLAY", "GameFontHighlightSmallOutline")
+    button.Name:SetPoint("BOTTOM", 0, 2)
+
+    -- Create border
+    button.Border = button:CreateTexture(name .. "Border", "OVERLAY")
+    button.Border:SetAllPoints(button.icon)
+    button.Border:Hide()
+
+    -- Create normal texture
+    button.NormalTexture = button:CreateTexture(name .. "NormalTexture", "ARTWORK")
+    button.NormalTexture:SetAllPoints()
+    button.NormalTexture:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+    button:SetNormalTexture(button.NormalTexture)
+
+    -- Set highlight
+    button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+
+    -- Set pushed texture
+    button:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 
     -- Initialize button elements
     self:InitializeButton(button)
@@ -3956,6 +4938,23 @@ function LAB:CreateFlyoutButton(parent, index)
     button._flyoutParent = parent
     button._flyoutIndex = index
     button.buttonType = LAB.ButtonType.ACTION
+
+    -- Unregister from all Blizzard template events
+    button:UnregisterAllEvents()
+
+    -- Override Blizzard's OnEvent to use our event handling
+    -- This prevents Blizzard's ActionButton code from running which expects action slots
+    button:SetScript("OnEvent", function(self, event, ...)
+        LAB:OnButtonEvent(self, event, ...)
+    end)
+
+    -- Register for our events
+    for _, event in ipairs(self.UPDATE_EVENTS) do
+        button:RegisterEvent(event)
+    end
+
+    -- Fire callback for flyout button creation (Phase 11 Item 26)
+    self:FireCallback("OnFlyoutButtonCreated", button)
 
     return button
 end
@@ -4052,6 +5051,27 @@ function LAB:ShowFlyout(button)
 
     -- Store flyout buttons on parent
     button._flyoutButtons = flyoutButtons
+
+    -- Create/show flyout arrow (Feature 18: Complete flyout system)
+    if not button._flyoutArrow then
+        button._flyoutArrow = button:CreateTexture(nil, "OVERLAY", nil, 1)
+        button._flyoutArrow:SetSize(16, 16)
+        -- Position based on direction
+        if direction == "UP" then
+            button._flyoutArrow:SetPoint("TOP", button, "TOP", 0, 4)
+            button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Up-Up")
+        elseif direction == "DOWN" then
+            button._flyoutArrow:SetPoint("BOTTOM", button, "BOTTOM", 0, -4)
+            button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+        elseif direction == "LEFT" then
+            button._flyoutArrow:SetPoint("LEFT", button, "LEFT", -4, 0)
+            button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Left-Up")
+        else -- RIGHT
+            button._flyoutArrow:SetPoint("RIGHT", button, "RIGHT", 4, 0)
+            button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Right-Up")
+        end
+    end
+    button._flyoutArrow:Show()
 end
 
 --- Hide flyout for button
@@ -4064,6 +5084,11 @@ function LAB:HideFlyout(button)
     end
 
     button._flyoutButtons = nil
+
+    -- Hide flyout arrow
+    if button._flyoutArrow then
+        button._flyoutArrow:Hide()
+    end
 end
 
 --- Position flyout button relative to parent
@@ -4112,11 +5137,1282 @@ function LAB:UpdateAllButtons()
 end
 
 -----------------------------------
+-- PHASE 11: COMPLETE FEATURE PARITY (27 ITEMS)
+-----------------------------------
+
+--[[
+    Phase 11 implements the remaining 27 features to achieve 100% feature parity with LibActionButton-1.0
+
+    HIGH PRIORITY (11): Core functionality
+    MEDIUM PRIORITY (9): Retail-specific features
+    LOW PRIORITY (7): Legacy/optional features
+]]
+
+-----------------------------------
+-- PHASE 11 - HIGH PRIORITY (Items 1-11)
+-----------------------------------
+
+--- Get all registered buttons (returns iterator)
+-- @return iterator function for all buttons
+-- Phase 11 Item 1
+function LAB:GetAllButtons()
+    return pairs(self.buttons)
+end
+
+--- Update state on all buttons
+-- @param newState The new state to apply to all buttons
+-- Phase 11 Item 2
+function LAB:UpdateAllStates(newState)
+    if not newState then return end
+
+    for button in pairs(self.buttons) do
+        if button._currentState ~= newState then
+            self:UpdateState(button, newState)
+        end
+    end
+end
+
+--- Update button tooltip display
+-- @param button The button to update tooltip for
+-- Phase 11 Item 3
+function LAB:UpdateTooltip(button)
+    if not button then return end
+
+    -- Check tooltip config and update button's tooltip mode
+    local tooltipMode = "enabled" -- default
+    if button.config and button.config.tooltip then
+        tooltipMode = button.config.tooltip
+    end
+
+    -- Store tooltip mode on button for ShouldShowTooltip to use
+    button._tooltipMode = tooltipMode
+
+    -- If tooltip is currently showing and should be hidden, hide it
+    if GameTooltip:GetOwner() == button then
+        if tooltipMode == "disabled" or (tooltipMode == "nocombat" and InCombatLockdown()) then
+            GameTooltip:Hide()
+        else
+            -- Re-trigger OnEnter to update tooltip
+            self:OnButtonEnter(button)
+        end
+    end
+end
+
+--- Local update - updates visual state only without full action lookup
+-- @param button The button to update
+-- Phase 11 Item 4
+function LAB:UpdateLocal(button)
+    if not button then return end
+
+    -- Update only visual states, don't do expensive action lookups
+    self:UpdateUsable(button)
+    self:UpdateRange(button)
+    self:UpdateCooldown(button)
+    self:UpdateCount(button)
+end
+
+--- Update button alpha transparency
+-- @param button The button to update
+-- Phase 11 Item 5
+function LAB:UpdateAlpha(button)
+    if not button then return end
+
+    local alpha = 1.0 -- default
+
+    -- Check for config alpha
+    if button.config and button.config.alpha then
+        alpha = button.config.alpha
+    end
+
+    -- Reduce alpha for out of range (if configured)
+    if button._state and button._state.outOfRange then
+        if button.config and button.config.outOfRangeAlpha then
+            alpha = alpha * button.config.outOfRangeAlpha
+        end
+    end
+
+    -- Apply alpha
+    button:SetAlpha(alpha)
+end
+
+--- Global table tracking new action highlights (matches LAB-1.0)
+LAB.ACTION_HIGHLIGHT_MARKS = LAB.ACTION_HIGHLIGHT_MARKS or setmetatable({}, { __index = ACTION_HIGHLIGHT_MARKS or {} })
+
+--- Clear new action highlight from specific action(s)
+-- @param action The action ID to clear highlight from
+-- @param preventIdenticalActionsFromClearing Don't clear from identical actions
+-- @param value The mark value (optional)
+-- Phase 11 Item 6
+function LAB:ClearNewActionHighlight(action, preventIdenticalActionsFromClearing, value)
+    if not action then return end
+
+    -- Clear from ACTION_HIGHLIGHT_MARKS
+    if not preventIdenticalActionsFromClearing then
+        self.ACTION_HIGHLIGHT_MARKS[action] = nil
+    end
+
+    -- Clear from all buttons with this action
+    for button in pairs(self.buttons) do
+        if button.buttonType == "action" and button.action == action then
+            if button.NewActionTexture then
+                button.NewActionTexture:Hide()
+            end
+
+            -- Fire callback if needed
+            if not preventIdenticalActionsFromClearing then
+                self:FireCallback("OnButtonContentsChanged", button)
+            end
+        end
+    end
+end
+
+--- Update cooldown number visibility
+-- @param button The button to update
+-- Phase 11 Item 7
+function LAB:UpdateCooldownNumberHidden(button)
+    if not button or not button._cooldown then return end
+
+    local hideNumbers = false
+
+    -- Check button config first
+    if button.config and button.config.cooldownCount ~= nil then
+        -- Explicit config overrides CVar
+        hideNumbers = not button.config.cooldownCount
+    else
+        -- Use CVar setting (default behavior)
+        local cvarValue = GetCVar("countdownForCooldowns")
+        if cvarValue then
+            hideNumbers = (cvarValue == "0")
+        end
+    end
+
+    -- Apply to cooldown frame
+    if button._cooldown.SetHideCountdownNumbers then
+        button._cooldown:SetHideCountdownNumbers(hideNumbers)
+    end
+
+    -- Also apply to charge cooldown if it exists
+    if button.chargeCooldown and button.chargeCooldown.SetHideCountdownNumbers then
+        button.chargeCooldown:SetHideCountdownNumbers(hideNumbers)
+    end
+end
+
+--- Fire ButtonContentsChanged callback when button contents change
+-- This is called from UpdateAction and SetState
+-- @param button The button whose contents changed
+-- @param state The state that changed (optional)
+-- @param buttonType The button type (optional)
+-- @param action The action value (optional)
+-- Phase 11 Item 10 (implemented inline in UpdateAction and SetState)
+function LAB:ButtonContentsChanged(button, state, buttonType, action)
+    if not button then return end
+
+    self:FireCallback("OnButtonContentsChanged", button, state or button._currentState, buttonType or button.buttonType, action or button.buttonAction)
+end
+
+-----------------------------------
+-- PHASE 11 - KEYBINDING METHODS (Items 8-9, 11)
+-----------------------------------
+
+--- Get all key bindings for a button (button instance method)
+-- @return table of key binding strings
+-- Phase 11 Item 8
+-- Note: This is set up in EnableKeyBound, adding standalone method here
+function LAB:GetAllBindings(button)
+    if not button or not button.action then return {} end
+
+    local bindings = {}
+    -- WoW allows up to 36 bindings per action
+    for i = 1, 36 do
+        local hotkey = GetBindingKey("ACTIONBUTTON" .. button.action, i)
+        if hotkey then
+            table.insert(bindings, hotkey)
+        end
+    end
+
+    return bindings
+end
+
+--- Clear all key bindings for a button (button instance method)
+-- Phase 11 Item 9
+function LAB:ClearAllBindings(button)
+    if not button or not button.action then return end
+
+    local bindings = self:GetAllBindings(button)
+
+    for _, key in ipairs(bindings) do
+        SetBinding(key, nil)
+    end
+
+    SaveBindings(GetCurrentBindingSet())
+    self:UpdateHotkey(button)
+
+    -- Fire callback
+    self:FireCallback("OnKeybindingChanged", button, nil)
+end
+
+-- Note: OnKeybindingChanged callback is fired in EnableKeyBound's SetKey method
+-- Phase 11 Item 11 - callback already implemented in existing EnableKeyBound
+
+-----------------------------------
+-- PHASE 11 - MEDIUM PRIORITY (Items 12-21) - Retail Features
+-----------------------------------
+
+--- Update spell highlight animation (proc glows)
+-- @param button The button to update
+-- Phase 11 Item 12
+function LAB:UpdateSpellHighlight(button)
+    if not self.WoWRetail or not button then return end
+
+    -- Check if button has SpellHighlightAnim (from template)
+    if not button.SpellHighlightAnim then return end
+
+    local spellID = button.UpdateFunctions and button.UpdateFunctions.GetSpellId and button.UpdateFunctions.GetSpellId(button)
+    if not spellID then
+        button.SpellHighlightAnim:Stop()
+        return
+    end
+
+    -- Check if spell should be highlighted
+    local shouldHighlight = false
+
+    if IsSpellOverlayed and IsSpellOverlayed(spellID) then
+        shouldHighlight = true
+    elseif C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed then
+        shouldHighlight = C_SpellActivationOverlay.IsSpellOverlayed(spellID)
+    end
+
+    if shouldHighlight then
+        button.SpellHighlightAnim:Play()
+    else
+        button.SpellHighlightAnim:Stop()
+    end
+end
+
+--- Update assisted combat rotation frame (Retail only)
+-- @param button The button to update
+-- Phase 11 Item 13
+function LAB:UpdateAssistedCombatRotationFrame(button)
+    if not self.WoWRetail or not button then return end
+
+    -- Check if feature is enabled in config
+    if not button.config or not button.config.actionButtonUI or not button.config.assistedHighlight then
+        if button.AssistedCombatRotationFrame then
+            button.AssistedCombatRotationFrame:Hide()
+        end
+        return
+    end
+
+    -- Only for action buttons
+    if button.buttonType ~= "action" or not button.action then
+        return
+    end
+
+    -- Check if this action is part of assisted combat rotation
+    local isAssisted = false
+    if C_ActionBar and C_ActionBar.IsAssistedCombatAction then
+        isAssisted = C_ActionBar.IsAssistedCombatAction(button.action)
+    end
+
+    if isAssisted then
+        -- Create frame if it doesn't exist
+        if not button.AssistedCombatRotationFrame then
+            button.AssistedCombatRotationFrame = CreateFrame("Frame", nil, button)
+            button.AssistedCombatRotationFrame:SetAllPoints(button._icon or button)
+
+            -- Create texture
+            button.AssistedCombatRotationFrame.Texture = button.AssistedCombatRotationFrame:CreateTexture(nil, "OVERLAY", nil, 3)
+            button.AssistedCombatRotationFrame.Texture:SetAllPoints()
+            button.AssistedCombatRotationFrame.Texture:SetTexture("Interface\\Cooldown\\star4")
+            button.AssistedCombatRotationFrame.Texture:SetBlendMode("ADD")
+
+            -- Fire callback for frame creation
+            self:FireCallback("OnAssistedCombatRotationFrameCreated", button, button.AssistedCombatRotationFrame)
+        end
+
+        button.AssistedCombatRotationFrame:Show()
+    else
+        if button.AssistedCombatRotationFrame then
+            button.AssistedCombatRotationFrame:Hide()
+        end
+    end
+end
+
+--- Update assisted combat highlight frame (Retail only)
+-- @param button The button to update
+-- Phase 11 Item 14
+function LAB:UpdatedAssistedHighlightFrame(button)
+    if not self.WoWRetail or not button then return end
+
+    -- Check if feature is enabled in config
+    if not button.config or not button.config.actionButtonUI or not button.config.assistedHighlight then
+        if button.AssistedHighlightFrame then
+            button.AssistedHighlightFrame:Hide()
+        end
+        return
+    end
+
+    -- Only for action buttons
+    if button.buttonType ~= "action" or not button.action then
+        return
+    end
+
+    -- Check if this action should be highlighted
+    local shouldHighlight = false
+    if C_ActionBar and C_ActionBar.IsAssistedCombatAction then
+        shouldHighlight = C_ActionBar.IsAssistedCombatAction(button.action)
+    end
+
+    if shouldHighlight then
+        -- Create frame if it doesn't exist
+        if not button.AssistedHighlightFrame then
+            button.AssistedHighlightFrame = CreateFrame("Frame", nil, button)
+            button.AssistedHighlightFrame:SetAllPoints(button._icon or button)
+            button.AssistedHighlightFrame:SetFrameLevel(button:GetFrameLevel() + 4)
+
+            -- Create pulse texture
+            button.AssistedHighlightFrame.Texture = button.AssistedHighlightFrame:CreateTexture(nil, "OVERLAY", nil, 4)
+            button.AssistedHighlightFrame.Texture:SetAllPoints()
+            button.AssistedHighlightFrame.Texture:SetColorTexture(1, 1, 1, 0.3)
+            button.AssistedHighlightFrame.Texture:SetBlendMode("ADD")
+
+            -- Create animation
+            button.AssistedHighlightFrame.AnimGroup = button.AssistedHighlightFrame.Texture:CreateAnimationGroup()
+            local anim = button.AssistedHighlightFrame.AnimGroup:CreateAnimation("Alpha")
+            anim:SetFromAlpha(0.3)
+            anim:SetToAlpha(0.7)
+            anim:SetDuration(0.5)
+            anim:SetSmoothing("IN_OUT")
+            button.AssistedHighlightFrame.AnimGroup:SetLooping("BOUNCE")
+
+            -- Fire callback for frame creation
+            self:FireCallback("OnAssistedCombatHighlightFrameCreated", button, button.AssistedHighlightFrame)
+        end
+
+        button.AssistedHighlightFrame:Show()
+        button.AssistedHighlightFrame.AnimGroup:Play()
+    else
+        if button.AssistedHighlightFrame then
+            button.AssistedHighlightFrame.AnimGroup:Stop()
+            button.AssistedHighlightFrame:Hide()
+        end
+    end
+end
+
+-----------------------------------
+-- PHASE 11 - SPELLVFX SYSTEM (Items 15-21) - Retail Only
+-----------------------------------
+
+--- Clear targeting reticle animation
+-- @param button The button to clear reticle from
+-- Phase 11 Item 15
+function LAB:SpellVFX_ClearReticle(button)
+    if not self.WoWRetail or not button then return end
+
+    if button.SpellReticleTargetIndicator then
+        button.SpellReticleTargetIndicator:Hide()
+    end
+end
+
+--- Clear interrupt display (alias to existing method)
+-- @param button The button to clear interrupt from
+-- Phase 11 Item 16
+function LAB:SpellVFX_ClearInterruptDisplay(button)
+    -- This is an alias to our existing HideInterruptDisplay method
+    self:HideInterruptDisplay(button)
+end
+
+--- Play spell cast animation
+-- @param button The button to play animation on
+-- Phase 11 Item 17
+function LAB:SpellVFX_PlaySpellCastAnim(button)
+    if not self.WoWRetail or not button then return end
+
+    -- Check if VFX is enabled
+    if not button.config or not button.config.spellCastVFX then return end
+
+    if button.SpellCastAnimFrame then
+        button.SpellCastAnimFrame:Show()
+        if button.SpellCastAnimFrame.Anim then
+            button.SpellCastAnimFrame.Anim:Play()
+        end
+    end
+end
+
+--- Play targeting reticle animation
+-- @param button The button to play reticle on
+-- Phase 11 Item 18
+function LAB:SpellVFX_PlayTargettingReticleAnim(button)
+    if not self.WoWRetail or not button then return end
+
+    -- Check if VFX is enabled
+    if not button.config or not button.config.spellCastVFX then return end
+
+    if button.SpellReticleTargetIndicator then
+        button.SpellReticleTargetIndicator:Show()
+        if button.SpellReticleTargetIndicator.Anim then
+            button.SpellReticleTargetIndicator.Anim:Play()
+        end
+    end
+end
+
+--- Stop targeting reticle animation
+-- @param button The button to stop reticle on
+-- Phase 11 Item 19
+function LAB:SpellVFX_StopTargettingReticleAnim(button)
+    if not self.WoWRetail or not button then return end
+
+    if button.SpellReticleTargetIndicator then
+        if button.SpellReticleTargetIndicator.Anim then
+            button.SpellReticleTargetIndicator.Anim:Stop()
+        end
+        button.SpellReticleTargetIndicator:Hide()
+    end
+end
+
+--- Stop spell cast animation
+-- @param button The button to stop animation on
+-- Phase 11 Item 20
+function LAB:SpellVFX_StopSpellCastAnim(button)
+    if not self.WoWRetail or not button then return end
+
+    if button.SpellCastAnimFrame then
+        if button.SpellCastAnimFrame.Anim then
+            button.SpellCastAnimFrame.Anim:Stop()
+        end
+        button.SpellCastAnimFrame:Hide()
+    end
+end
+
+--- Play spell interrupted animation
+-- @param button The button to play interrupt on
+-- Phase 11 Item 21
+function LAB:SpellVFX_PlaySpellInterruptedAnim(button)
+    if not self.WoWRetail or not button then return end
+
+    -- Check if VFX is enabled
+    if not button.config or not button.config.spellCastVFX then return end
+
+    -- Use our existing ShowInterruptDisplay method
+    self:ShowInterruptDisplay(button)
+end
+
+-----------------------------------
+-- PHASE 11 - LOW PRIORITY (Items 22-28) - Legacy/Optional
+-----------------------------------
+
+--- Add button to ButtonFacade skinning group (legacy)
+-- @param button The button to skin
+-- @param group The ButtonFacade group
+-- Phase 11 Item 22
+function LAB:AddToButtonFacade(button, group)
+    if not button then return end
+
+    -- Try to get ButtonFacade library
+    local BF = LibStub and LibStub("ButtonFacade", true)
+    if not BF then
+        self:DebugPrint("ButtonFacade not found, skipping AddToButtonFacade")
+        return
+    end
+
+    -- Create button data structure for ButtonFacade
+    local buttonData = {
+        Button = button,
+        Icon = button._icon,
+        Cooldown = button._cooldown,
+        Normal = button._normalTexture,
+        Border = button._border,
+        Count = button._count,
+        HotKey = button._hotkey,
+        Name = button._name,
+    }
+
+    -- Register with ButtonFacade
+    if group and group.AddButton then
+        group:AddButton(button, buttonData)
+    elseif BF.Group and BF:Group("LibTotalActionButtons") then
+        BF:Group("LibTotalActionButtons"):AddButton(button, buttonData)
+    end
+end
+
+--- Get the spell flyout frame reference
+-- @return The flyout frame or nil
+-- Phase 11 Item 23
+function LAB:GetSpellFlyoutFrame()
+    return self.flyoutFrame or nil
+end
+
+--- Update flyout display when contents change
+-- @param button The button to update flyout for
+-- Phase 11 Item 24
+function LAB:UpdateFlyout(button)
+    if not button then return end
+
+    -- Check if button has a flyout
+    local isFlyout, numSlots, direction = self:GetFlyoutInfo(button.action)
+
+    if not isFlyout then
+        -- Hide flyout if it was showing
+        self:HideFlyout(button)
+
+        -- Hide flyout arrow
+        if button._flyoutArrow then
+            button._flyoutArrow:Hide()
+        end
+        return
+    end
+
+    -- Update flyout arrow visibility
+    if not button._flyoutArrow then
+        button._flyoutArrow = button:CreateTexture(nil, "OVERLAY", nil, 1)
+        button._flyoutArrow:SetSize(16, 16)
+    end
+
+    -- Position arrow based on direction
+    button._flyoutArrow:ClearAllPoints()
+    if direction == "UP" then
+        button._flyoutArrow:SetPoint("TOP", button, "TOP", 0, 4)
+        button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Up-Up")
+    elseif direction == "DOWN" then
+        button._flyoutArrow:SetPoint("BOTTOM", button, "BOTTOM", 0, -4)
+        button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+    elseif direction == "LEFT" then
+        button._flyoutArrow:SetPoint("LEFT", button, "LEFT", -4, 0)
+        button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Left-Up")
+    else -- RIGHT
+        button._flyoutArrow:SetPoint("RIGHT", button, "RIGHT", 4, 0)
+        button._flyoutArrow:SetTexture("Interface\\Buttons\\Arrow-Right-Up")
+    end
+
+    button._flyoutArrow:Show()
+
+    -- If flyout is currently showing, refresh it
+    if button._flyoutButtons and #button._flyoutButtons > 0 then
+        self:HideFlyout(button)
+        self:ShowFlyout(button)
+    end
+end
+
+-- Initialize FlyoutInfo registry (Phase 11 Item 25)
+LAB.FlyoutInfo = LAB.FlyoutInfo or {}
+
+--- Discover and cache flyout spell information
+-- @param flyoutID The flyout ID to discover
+-- Phase 11 Item 25
+function LAB:DiscoverFlyoutInfo(flyoutID)
+    if not flyoutID or not GetFlyoutInfo then return end
+
+    local name, description, numSlots, isKnown = GetFlyoutInfo(flyoutID)
+    if not name then return end
+
+    -- Cache flyout info
+    self.FlyoutInfo[flyoutID] = {
+        name = name,
+        description = description,
+        numSlots = numSlots,
+        isKnown = isKnown,
+        slots = {}
+    }
+
+    -- Discover slot info
+    for i = 1, numSlots do
+        local spellID, overrideSpellID, isSlotKnown, spellName, slotSpecID = GetFlyoutSlotInfo(flyoutID, i)
+        if spellID then
+            -- Phase 13 Feature #8: Filter out empty pet slots
+            if GetCallPetSpellInfo then
+                local petIndex, petName = GetCallPetSpellInfo(spellID)
+                if petIndex and (not petName or petName == "") then
+                    -- Empty pet slot - don't show it
+                    isSlotKnown = false
+                end
+            end
+
+            self.FlyoutInfo[flyoutID].slots[i] = {
+                spellID = spellID,
+                overrideSpellID = overrideSpellID,
+                isKnown = isSlotKnown,
+                spellName = spellName,
+                slotSpecID = slotSpecID,
+            }
+        end
+    end
+end
+
+-- Phase 11 Item 26: OnFlyoutButtonCreated callback
+-- This is now fired in CreateFlyoutButton method
+
+-- Phase 11 Items 27-28: Assisted combat callbacks
+-- These are now fired in UpdateAssistedCombatRotationFrame and UpdatedAssistedHighlightFrame
+
+-----------------------------------
+-- PHASE 12: SECURE TEMPLATE ARCHITECTURE (6 ITEMS)
+-----------------------------------
+
+--[[
+    Phase 12 implements secure template features for combat functionality:
+
+    SIMPLE METHODS (3):
+    1. ClearSetPoint - Convenience method
+    2. SetStateFromHandlerInsecure - Data storage for secure handlers
+    3. NewHeader - Reassign button to different header
+
+    SECURE TEMPLATE SYSTEM (3):
+    4. SetupSecureSnippets - Secure Lua code for combat
+    5. WrapOnClick - Secure click handler wrapping
+    6. Secure Flyout Handler - Flyouts that work in combat
+
+    These features enable buttons to work properly during combat.
+]]
+
+-----------------------------------
+-- PHASE 12 - SIMPLE METHODS (Items 1-3)
+-----------------------------------
+
+--- Clear all points and set new point(s) in one call
+-- @param button The button to reposition
+-- @param ... SetPoint arguments (point, relativeTo, relativePoint, x, y)
+-- Phase 12 Item 1
+function LAB:ClearSetPoint(button, ...)
+    if not button then return end
+
+    button:ClearAllPoints()
+    button:SetPoint(...)
+end
+
+--- Set state data from secure handler (called by secure snippets)
+-- This is the data storage counterpart to SetState
+-- @param button The button to update
+-- @param state The state identifier
+-- @param kind The button type (action, spell, item, macro, custom, empty)
+-- @param action The action value (actionID, spellID, itemID, macroID, or custom data)
+-- Phase 12 Item 2
+function LAB:SetStateFromHandlerInsecure(button, state, kind, action)
+    if not button then return end
+
+    state = tostring(state or "0")
+    kind = kind or "empty"
+
+    -- Validate kind
+    local validKinds = {
+        empty = true,
+        action = true,
+        spell = true,
+        item = true,
+        macro = true,
+        custom = true,
+    }
+
+    if not validKinds[kind] then
+        self:Error("SetStateFromHandlerInsecure: unknown action type: " .. tostring(kind), 2)
+        return
+    end
+
+    -- Validate action for non-empty states
+    if kind ~= "empty" and kind ~= "custom" and action == nil then
+        self:Error("SetStateFromHandlerInsecure: action required for non-empty states", 2)
+        return
+    end
+
+    -- Validate action data type
+    if kind ~= "empty" and kind ~= "custom" and action ~= nil then
+        if type(action) ~= "number" and type(action) ~= "string" then
+            self:Error("SetStateFromHandlerInsecure: invalid action data type, only strings and numbers allowed", 2)
+            return
+        end
+    end
+
+    if kind == "custom" and action ~= nil and type(action) ~= "table" then
+        self:Error("SetStateFromHandlerInsecure: custom actions must be tables", 2)
+        return
+    end
+
+    -- Handle item format conversion
+    if kind == "item" then
+        if tonumber(action) then
+            -- Convert number to item string format
+            action = string.format("item:%s", action)
+        else
+            -- Extract item string from item link if needed
+            local itemString = string.match(tostring(action), "^|c[^|]+|H(item[%d:]+)|h%[")
+            if itemString then
+                action = itemString
+            end
+        end
+    end
+
+    -- Initialize state tables if needed
+    if not button.stateTypes then
+        button.stateTypes = {}
+    end
+    if not button.stateActions then
+        button.stateActions = {}
+    end
+
+    -- Store state data
+    -- NOTE: This does NOT trigger UpdateState or UpdateAction
+    -- Secure handler code is responsible for calling those
+    button.stateTypes[state] = kind
+    button.stateActions[state] = action
+
+    self:DebugPrint(string.format("SetStateFromHandlerInsecure: button=%s, state=%s, kind=%s, action=%s",
+        button:GetName() or "unnamed", state, kind, tostring(action)))
+end
+
+--- Reassign button to a different secure header
+-- @param button The button to reassign
+-- @param header The new secure header parent
+-- Phase 12 Item 3
+function LAB:NewHeader(button, header)
+    if not button or not header then
+        self:Error("NewHeader: button and header are required", 2)
+        return
+    end
+
+    local oldheader = button.header
+    button.header = header
+    button:SetParent(header)
+
+    -- If button has secure snippets, set them up with new header
+    if button._hasSecureSnippets then
+        self:SetupSecureSnippets(button)
+    end
+
+    -- If button has wrapped click, re-wrap with new header
+    if button._hasWrappedClick then
+        self:WrapOnClick(button, oldheader)
+    end
+
+    self:DebugPrint(string.format("NewHeader: button=%s, old=%s, new=%s",
+        button:GetName() or "unnamed",
+        oldheader and oldheader:GetName() or "nil",
+        header:GetName() or "unnamed"))
+end
+
+-----------------------------------
+-- PHASE 12 - SECURE TEMPLATE SYSTEM (Items 4-6)
+-----------------------------------
+
+--- Set up secure Lua snippets for combat-safe operation
+-- This enables state switching, drag & drop, and updates during combat
+-- @param button The button to set up secure snippets for
+-- Phase 12 Item 4
+function LAB:SetupSecureSnippets(button)
+    if not button or not button.header then
+        self:Error("SetupSecureSnippets: button with secure header required", 2)
+        return
+    end
+
+    -- Mark that button has secure snippets
+    button._hasSecureSnippets = true
+
+    -- Set up custom action handler (for custom button types)
+    if button.UpdateFunctions and button.UpdateFunctions.RunCustom then
+        button:SetAttribute("_custom", button.UpdateFunctions.RunCustom)
+    end
+
+    -- Secure UpdateState snippet - runs during combat when state changes
+    button:SetAttribute("UpdateState", [[
+        local state = ...
+        self:SetAttribute("state", state)
+
+        -- Get the type and action for this state
+        local type = self:GetAttribute(format("labtype-%s", state)) or "empty"
+        local action = self:GetAttribute(format("labaction-%s", state))
+
+        -- Update secure attributes based on type
+        self:SetAttribute("type", type)
+
+        if type ~= "empty" and type ~= "custom" then
+            -- For action, spell, item, macro types, set the appropriate attribute
+            local action_field = (type == "pet") and "action" or type
+            self:SetAttribute(action_field, action)
+            self:SetAttribute("action_field", action_field)
+        end
+
+        -- Handle press-and-hold spells (Retail feature)
+        if IsPressHoldReleaseSpell then
+            local pressAndHold = false
+
+            if type == "action" then
+                self:SetAttribute("typerelease", "actionrelease")
+                local actionType, id, subType = GetActionInfo(action)
+                if actionType == "spell" then
+                    pressAndHold = IsPressHoldReleaseSpell(id)
+                elseif actionType == "macro" then
+                    if subType == "spell" then
+                        pressAndHold = IsPressHoldReleaseSpell(id)
+                    end
+                end
+            elseif type == "spell" then
+                self:SetAttribute("typerelease", nil)
+                pressAndHold = IsPressHoldReleaseSpell(action)
+            else
+                self:SetAttribute("typerelease", nil)
+            end
+
+            self:SetAttribute("pressAndHoldAction", pressAndHold)
+        end
+
+        -- Call OnStateChanged handler if defined
+        local onStateChanged = self:GetAttribute("OnStateChanged")
+        if onStateChanged then
+            self:Run(onStateChanged, state, type, action)
+        end
+    ]])
+
+    -- State update trigger from header
+    button:SetAttribute("_childupdate-state", [[
+        self:RunAttribute("UpdateState", message)
+        self:CallMethod("UpdateAction")
+    ]])
+
+    -- Secure PickupButton snippet - handles pickup during drag
+    button:SetAttribute("PickupButton", [[
+        local kind, value = ...
+        if kind == "empty" then
+            return "clear"
+        elseif kind == "action" or kind == "pet" then
+            local actionType = (kind == "pet") and "petaction" or kind
+            return actionType, value
+        elseif kind == "spell" or kind == "item" or kind == "macro" then
+            return "clear", kind, value
+        else
+            print("LibTotalActionButtons: Unknown type: " .. tostring(kind))
+            return false
+        end
+    ]])
+
+    -- Secure OnDragStart - handles drag during combat
+    button:SetAttribute("OnDragStart", [[
+        if (self:GetAttribute("buttonlock") and not IsModifiedClick("PICKUPACTION")) or self:GetAttribute("LABdisableDragNDrop") then
+            return false
+        end
+
+        local state = self:GetAttribute("state")
+        local type = self:GetAttribute("type")
+
+        -- Can't drag empty or custom buttons
+        if type == "empty" or type == "custom" then
+            return false
+        end
+
+        -- Get the action value
+        local action_field = self:GetAttribute("action_field")
+        local action = self:GetAttribute(action_field)
+
+        -- Non-action buttons need to clear themselves when dragged
+        if type ~= "action" and type ~= "pet" then
+            self:SetAttribute(format("labtype-%s", state), "empty")
+            self:SetAttribute(format("labaction-%s", state), nil)
+            self:RunAttribute("UpdateState", state)
+            self:CallMethod("ButtonContentsChanged", state, "empty", nil)
+        end
+
+        -- Return pickup info
+        return self:RunAttribute("PickupButton", type, action)
+    ]])
+
+    -- Secure OnReceiveDrag - handles drop during combat
+    button:SetAttribute("OnReceiveDrag", [[
+        if self:GetAttribute("LABdisableDragNDrop") then
+            return false
+        end
+
+        local kind, value, subtype, extra = ...
+        if not kind or not value then return false end
+
+        local state = self:GetAttribute("state")
+        local buttonType = self:GetAttribute("type")
+        local buttonAction = nil
+
+        if buttonType == "custom" then return false end
+
+        -- Action buttons handle themselves
+        -- Other buttons need manual update
+        if buttonType ~= "action" and buttonType ~= "pet" then
+            -- For spell type, 4th value contains actual spell ID
+            if kind == "spell" then
+                if extra then
+                    value = extra
+                else
+                    print("LibTotalActionButtons: No spell ID in drag data")
+                end
+            elseif kind == "item" and value then
+                value = format("item:%d", value)
+            end
+
+            -- Get old action before replacing
+            if buttonType ~= "empty" then
+                buttonAction = self:GetAttribute(self:GetAttribute("action_field"))
+            end
+
+            -- Set new action
+            self:SetAttribute(format("labtype-%s", state), kind)
+            self:SetAttribute(format("labaction-%s", state), value)
+            self:RunAttribute("UpdateState", state)
+            self:CallMethod("ButtonContentsChanged", state, kind, value)
+        else
+            -- Get action from action button
+            buttonAction = self:GetAttribute("action")
+        end
+
+        return self:RunAttribute("PickupButton", buttonType, buttonAction)
+    ]])
+
+    -- Set up drag/drop scripts using header wrapping
+    button:SetScript("OnDragStart", nil)
+    button.header:WrapScript(button, "OnDragStart", [[
+        return self:RunAttribute("OnDragStart")
+    ]])
+
+    -- Wrap twice for post-script execution
+    button.header:WrapScript(button, "OnDragStart", [[
+        return "message", "update"
+    ]], [[
+        self:RunAttribute("UpdateState", self:GetAttribute("state"))
+    ]])
+
+    button:SetScript("OnReceiveDrag", nil)
+    button.header:WrapScript(button, "OnReceiveDrag", [[
+        return self:RunAttribute("OnReceiveDrag", kind, value, ...)
+    ]])
+
+    -- Wrap twice for post-script execution
+    button.header:WrapScript(button, "OnReceiveDrag", [[
+        return "message", "update"
+    ]], [[
+        self:RunAttribute("UpdateState", self:GetAttribute("state"))
+    ]])
+
+    self:DebugPrint(string.format("SetupSecureSnippets: %s configured", button:GetName() or "unnamed"))
+end
+
+--- Wrap button's OnClick handler with secure code
+-- Enables action change detection, flyout handling, and drag prevention during combat
+-- @param button The button to wrap OnClick for
+-- @param unwrapheader Optional old header to unwrap from
+-- Phase 12 Item 5
+function LAB:WrapOnClick(button, unwrapheader)
+    if not button or not button.header then
+        self:Error("WrapOnClick: button with secure header required", 2)
+        return
+    end
+
+    -- Mark that button has wrapped click
+    button._hasWrappedClick = true
+
+    -- Unwrap from old header if provided
+    if unwrapheader and unwrapheader.UnwrapScript then
+        local wrapheader
+        repeat
+            wrapheader = unwrapheader:UnwrapScript(button, "OnClick")
+        until (not wrapheader or wrapheader == unwrapheader)
+    end
+
+    -- Get reference to flyout handler if available
+    if self.flyoutHandler then
+        button.header:SetFrameRef("flyoutHandler", self.flyoutHandler)
+    end
+
+    -- Wrap OnClick to catch action changes and handle flyouts
+    button.header:WrapScript(button, "OnClick", [[
+        if self:GetAttribute("type") == "action" then
+            local type, action = GetActionInfo(self:GetAttribute("action"))
+
+            -- Handle flyout actions
+            if type == "flyout" and self:GetAttribute("LABUseCustomFlyout") then
+                local flyoutHandler = owner:GetFrameRef("flyoutHandler")
+                if not down and flyoutHandler then
+                    flyoutHandler:SetAttribute("flyoutParentHandle", self)
+                    flyoutHandler:RunAttribute("HandleFlyout", action)
+                end
+
+                self:CallMethod("UpdateFlyout")
+                return false
+            end
+
+            -- Hide flyout if showing
+            local flyoutHandler = owner:GetFrameRef("flyoutHandler")
+            if flyoutHandler then
+                flyoutHandler:Hide()
+            end
+
+            -- Handle pickup clicks - disable on-down to prevent accidental casts
+            if button ~= "Keybind" and ((self:GetAttribute("unlockedpreventdrag") and not self:GetAttribute("buttonlock")) or IsModifiedClick("PICKUPACTION")) and not self:GetAttribute("LABdisableDragNDrop") then
+                local useOnkeyDown = self:GetAttribute("useOnKeyDown")
+                if useOnkeyDown ~= false then
+                    self:SetAttribute("LABToggledOnDown", true)
+                    self:SetAttribute("LABToggledOnDownBackup", useOnkeyDown)
+                    self:SetAttribute("useOnKeyDown", false)
+                end
+            end
+
+            return (button == "Keybind") and "LeftButton" or nil, format("%s|%s", tostring(type), tostring(action))
+        end
+
+        -- Hide flyout for non-action clicks
+        local flyoutHandler = owner:GetFrameRef("flyoutHandler")
+        if flyoutHandler and (not down or self:GetParent() ~= flyoutHandler) then
+            flyoutHandler:Hide()
+        end
+
+        if button == "Keybind" then
+            return "LeftButton"
+        end
+    ]], [[
+        -- Post-click: Check if action changed
+        local type, action = GetActionInfo(self:GetAttribute("action"))
+        if message ~= format("%s|%s", tostring(type), tostring(action)) then
+            self:RunAttribute("UpdateState", self:GetAttribute("state"))
+        end
+
+        -- Restore on-down if we toggled it
+        local toggledOnDown = self:GetAttribute("LABToggledOnDown")
+        if toggledOnDown then
+            self:SetAttribute("LABToggledOnDown", nil)
+            self:SetAttribute("useOnKeyDown", self:GetAttribute("LABToggledOnDownBackup"))
+            self:SetAttribute("LABToggledOnDownBackup", nil)
+        end
+    ]])
+
+    self:DebugPrint(string.format("WrapOnClick: %s configured", button:GetName() or "unnamed"))
+end
+
+--- Initialize secure flyout handler for combat-safe flyouts
+-- Phase 12 Item 6
+function LAB:InitializeSecureFlyoutHandler()
+    if self.flyoutHandler then
+        return -- Already initialized
+    end
+
+    -- Check if we should use custom flyouts
+    local useCustomFlyout = self.WoWRetail or (FlyoutButtonMixin and not ActionButton_UpdateFlyout)
+    if not useCustomFlyout then
+        self:DebugPrint("InitializeSecureFlyoutHandler: Custom flyouts not needed")
+        return
+    end
+
+    -- Create secure flyout handler frame
+    self.flyoutHandler = CreateFrame("Frame", "LABFlyoutHandlerFrame", UIParent, "SecureHandlerBaseTemplate")
+    self.flyoutHandler:Hide()
+
+    -- Create background
+    self.flyoutHandler.Background = CreateFrame("Frame", nil, self.flyoutHandler)
+    self.flyoutHandler.Background:SetAllPoints()
+
+    -- Create background textures
+    self.flyoutHandler.Background.End = self.flyoutHandler.Background:CreateTexture(nil, "BACKGROUND")
+    self.flyoutHandler.Background.HorizontalMiddle = self.flyoutHandler.Background:CreateTexture(nil, "BACKGROUND")
+    self.flyoutHandler.Background.VerticalMiddle = self.flyoutHandler.Background:CreateTexture(nil, "BACKGROUND")
+    self.flyoutHandler.Background.Start = self.flyoutHandler.Background:CreateTexture(nil, "BACKGROUND")
+
+    -- Set up background atlases if available
+    if self.WoWRetail then
+        self.flyoutHandler.Background.End:SetAtlas("UI-HUD-ActionBar-IconFrame-FlyoutButton", true)
+        self.flyoutHandler.Background.HorizontalMiddle:SetAtlas("_UI-HUD-ActionBar-IconFrame-FlyoutMidLeft", true)
+        self.flyoutHandler.Background.VerticalMiddle:SetAtlas("!UI-HUD-ActionBar-IconFrame-FlyoutMid", true)
+        self.flyoutHandler.Background.Start:SetAtlas("UI-HUD-ActionBar-IconFrame-FlyoutBottom", true)
+    end
+
+    -- Set up secure flyout handling snippet
+    self.flyoutHandler:SetAttribute("HandleFlyout", [[
+        local flyoutID = ...
+        local info = LAB_FlyoutInfo[flyoutID]
+
+        if not info then
+            print("LibTotalActionButtons: Flyout missing with ID " .. flyoutID)
+            return
+        end
+
+        -- Show flyout buttons based on discovered spells
+        local usedSlots = 0
+        local direction = self:GetAttribute("flyoutDirection") or "UP"
+
+        for i = 1, info.numSlots do
+            local slotInfo = info.slots[i]
+            if slotInfo and slotInfo.isKnown then
+                usedSlots = usedSlots + 1
+                local button = self:GetFrameRef("flyoutButton" .. usedSlots)
+                if button then
+                    button:SetAttribute("type", "spell")
+                    button:SetAttribute("spell", slotInfo.spellID)
+                    button:Show()
+
+                    -- Position button based on direction
+                    button:ClearAllPoints()
+                    if direction == "UP" then
+                        button:SetPoint("BOTTOM", self, "TOP", 0, (usedSlots - 1) * 40)
+                    elseif direction == "DOWN" then
+                        button:SetPoint("TOP", self, "BOTTOM", 0, -(usedSlots - 1) * 40)
+                    elseif direction == "LEFT" then
+                        button:SetPoint("RIGHT", self, "LEFT", -(usedSlots - 1) * 40, 0)
+                    else -- RIGHT
+                        button:SetPoint("LEFT", self, "RIGHT", (usedSlots - 1) * 40, 0)
+                    end
+
+                    button:CallMethod("UpdateAction")
+                end
+            end
+        end
+
+        -- Hide unused slots
+        for i = usedSlots + 1, self:GetAttribute("numFlyoutButtons") do
+            local button = self:GetFrameRef("flyoutButton" .. i)
+            if button then
+                button:Hide()
+            end
+        end
+
+        -- Show the flyout frame
+        if usedSlots > 0 then
+            self:Show()
+        end
+    ]])
+
+    -- Set up show/hide handlers
+    self.flyoutHandler:SetScript("OnShow", function(frame)
+        if frame:GetParent() and frame:GetParent().UpdateFlyout then
+            frame:GetParent():UpdateFlyout()
+        end
+    end)
+
+    self.flyoutHandler:SetScript("OnHide", function(frame)
+        if frame:GetParent() and frame:GetParent().UpdateFlyout then
+            frame:GetParent():UpdateFlyout()
+        end
+    end)
+
+    -- Initialize flyout button count
+    self.flyoutHandler:SetAttribute("numFlyoutButtons", 0)
+
+    -- Phase 13 Feature #6: Register events for automatic flyout updates
+    if not self.flyoutEventFrame then
+        self.flyoutEventFrame = CreateFrame("Frame")
+        self.flyoutEventFrame:SetScript("OnEvent", function(frame, event, ...)
+            LAB:OnFlyoutEvent(event, ...)
+        end)
+    end
+
+    self.flyoutEventFrame:RegisterEvent("PLAYER_LOGIN")
+    self.flyoutEventFrame:RegisterEvent("SPELLS_CHANGED")
+    if self.WoWRetail then
+        self.flyoutEventFrame:RegisterEvent("SPELL_FLYOUT_UPDATE")
+    end
+
+    self:DebugPrint("InitializeSecureFlyoutHandler: Secure flyout handler created with auto-update events")
+end
+
+-- Phase 13 Feature #6: Handle flyout update events
+function LAB:OnFlyoutEvent(event, ...)
+    if InCombatLockdown() then
+        -- Queue update for after combat
+        self.flyoutUpdateQueued = true
+        return
+    end
+
+    -- Update all discovered flyouts
+    for flyoutID in pairs(self.FlyoutInfo) do
+        self:DiscoverFlyoutInfo(flyoutID)
+    end
+
+    -- Sync to secure environment
+    self:SyncFlyoutInfoToSecure()
+
+    self:DebugPrint("OnFlyoutEvent: Flyouts updated for event " .. tostring(event))
+end
+
+--- Sync FlyoutInfo data to secure environment (must be called before combat)
+-- Phase 12 Item 6 (continued)
+function LAB:SyncFlyoutInfoToSecure()
+    if not self.flyoutHandler then
+        return
+    end
+
+    -- Build secure environment data string
+    local data = "LAB_FlyoutInfo = newtable();\n"
+
+    for flyoutID, info in pairs(self.FlyoutInfo) do
+        if info and info.numSlots then
+            data = data .. string.format("LAB_FlyoutInfo[%d] = newtable();", flyoutID)
+            data = data .. string.format("LAB_FlyoutInfo[%d].numSlots = %d;", flyoutID, info.numSlots)
+            data = data .. string.format("LAB_FlyoutInfo[%d].slots = newtable();", flyoutID)
+
+            for slotID, slotInfo in pairs(info.slots) do
+                if slotInfo and slotInfo.spellID then
+                    data = data .. string.format("LAB_FlyoutInfo[%d].slots[%d] = newtable();", flyoutID, slotID)
+                    data = data .. string.format("LAB_FlyoutInfo[%d].slots[%d].spellID = %d;", flyoutID, slotID, slotInfo.spellID)
+                    data = data .. string.format("LAB_FlyoutInfo[%d].slots[%d].isKnown = %s;", flyoutID, slotID, slotInfo.isKnown and "true" or "nil")
+                end
+            end
+        end
+    end
+
+    -- Execute in secure environment
+    self.flyoutHandler:Execute(data)
+
+    self:DebugPrint("SyncFlyoutInfoToSecure: Synced " .. tostring(self:tcount(self.FlyoutInfo)) .. " flyouts")
+end
+
+--- Count table entries (helper for debug output)
+function LAB:tcount(tbl)
+    local count = 0
+    for _ in pairs(tbl or {}) do
+        count = count + 1
+    end
+    return count
+end
+
+-----------------------------------
 -- INITIALIZATION
 -----------------------------------
 
 -- Register overlay events for proc glows (Retail only)
 LAB:RegisterOverlayEvents()
+
+-- Phase 13 Feature #7: Set up on-bar highlight hooks for spellbook integration
+LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = nil
+LAB.ON_BAR_HIGHLIGHT_MARK_ID = nil
+
+if UpdateOnBarHighlightMarksBySpell then
+    hooksecurefunc("UpdateOnBarHighlightMarksBySpell", function(spellID)
+        LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = "spell"
+        LAB.ON_BAR_HIGHLIGHT_MARK_ID = tonumber(spellID)
+        for button in pairs(LAB.buttons) do
+            LAB:UpdateSpellHighlight(button)
+        end
+    end)
+end
+
+if UpdateOnBarHighlightMarksByFlyout then
+    hooksecurefunc("UpdateOnBarHighlightMarksByFlyout", function(flyoutID)
+        LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = "flyout"
+        LAB.ON_BAR_HIGHLIGHT_MARK_ID = tonumber(flyoutID)
+        for button in pairs(LAB.buttons) do
+            LAB:UpdateSpellHighlight(button)
+        end
+    end)
+end
+
+if ClearOnBarHighlightMarks then
+    hooksecurefunc("ClearOnBarHighlightMarks", function()
+        LAB.ON_BAR_HIGHLIGHT_MARK_TYPE = nil
+        LAB.ON_BAR_HIGHLIGHT_MARK_ID = nil
+        for button in pairs(LAB.buttons) do
+            LAB:UpdateSpellHighlight(button)
+        end
+    end)
+end
+
+if ActionBarController_UpdateAllSpellHighlights then
+    hooksecurefunc("ActionBarController_UpdateAllSpellHighlights", function()
+        for button in pairs(LAB.buttons) do
+            LAB:UpdateSpellHighlight(button)
+        end
+    end)
+end
+
+-- Initialize secure flyout handler (Phase 12 Item 6)
+LAB:InitializeSecureFlyoutHandler()
 
 -- Export
 return LAB
