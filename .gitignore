@@ -2,6 +2,9 @@
 ADDON_DEVELOPMENT_ACTION_PLAN.md
 ELVUI_FEATURES_OVERVIEW.md
 PHASE0_COMPLETE.md
+LibTotalActionButtons_FeatureGap.md
+LibTotalActionButtons_Implementation_Plan*.md
+LibTotalActionButtons_Implementation_Summary.md
 
 # Libraries (should be downloaded separately - see LIBRARIES.md)
 TotalUI/Libraries/LibStub/*
