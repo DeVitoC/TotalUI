@@ -107,10 +107,12 @@ function Cooldown:ApplyCooldownSettings(cooldown, start, duration)
         cooldown:SetSwipeColor(c.r, c.g, c.b, c.a or 1)
     end
 
-    -- Hide cooldown bling if requested
+    -- Hide/show cooldown bling
     if db.hideCooldownBling then
         cooldown:SetHideCountdownNumbers(false)
         cooldown:SetDrawBling(false)
+    else
+        cooldown:SetDrawBling(true)
     end
 
     -- Handle desaturation

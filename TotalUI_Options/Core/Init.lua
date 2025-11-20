@@ -22,13 +22,20 @@ local Options = {}
 E.OptionsModule = Options
 
 function Options:Initialize()
-    -- TODO: Phase 13 Implementation
-    -- - Set up AceConfig
-    -- - Create options tables for each module
-    -- - Register options panels
-    -- - Create in-game interface
+    print("|cff1784d1TotalUI|r Options initializing...")
 
-    print("|cff1784d1TotalUI|r Options loaded")
+    -- Initialize Config GUI
+    if ns.ConfigGUI then
+        -- ConfigGUI is ready to use (no initialization needed)
+        print("|cff1784d1TotalUI|r Config GUI loaded. Type /totalui config to open settings.")
+    end
+
+    -- Initialize module options (Blizzard Settings integration - optional)
+    if ns.ActionBarsOptions then
+        ns.ActionBarsOptions:Initialize()
+    end
+
+    print("|cff1784d1TotalUI|r Options loaded. Type /totalui config to configure.")
 end
 
 -- Load options when addon is ready

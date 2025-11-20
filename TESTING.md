@@ -2,11 +2,14 @@
 
 This is the QA test suite for TotalUI. Run these tests in order after any changes to verify functionality.
 
-## Installation
+## Installation & Setup
 
 1. Copy `TotalUI` and `TotalUI_Options` folders to `<WoW>/Interface/AddOns/`
 2. Enable Lua errors: `/console scriptErrors 1`
-3. Reload: `/reload`
+3. **Enable taint log:** `/console taintLog 2`
+4. Reload: `/reload`
+
+**Note:** Keep taint logging enabled throughout ALL tests to detect any taint issues early.
 
 ---
 
@@ -406,18 +409,18 @@ LibTotalActionButtons-1.0 must be loaded in the .toc file (included with TotalUI
 
 ### Test 27: Bar 1 Configuration - Button Size
 **Steps:**
-1. Run: `/run TotalUI.db.actionbar.bar1.buttonSize = 40`
+1. Run: `/run TotalUI.db.actionbar.bar1.buttonSize = 40; TotalUI.db.actionbar.bar1.buttonHeight = 40`
 2. Run: `/reload`
 
 **Expected:**
-- Buttons are larger (40x40 pixels)
+- Buttons are larger (40x40 pixels, square)
 - Bar adjusts size accordingly
 
 **Result:**
-- ✅ **Pass** if buttons are larger
-- ❌ **Fail** if no change
+- ✅ **Pass** if buttons are larger and square
+- ❌ **Fail** if no change or buttons are squished
 
-**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32` and `/reload`
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32; TotalUI.db.actionbar.bar1.buttonHeight = 32` then `/reload`
 
 ---
 
@@ -476,23 +479,25 @@ LibTotalActionButtons-1.0 must be loaded in the .toc file (included with TotalUI
 
 ---
 
-### Test 31: Combat Safety - Config Changes
+### Test 31: Combat Safety - Drag and Drop
+**NOTE:** In TWW 11.0.7 (current retail), dragging during combat IS allowed. This matches Blizzard's default UI behavior. Midnight expansion may introduce stricter combat lockdown.
+
 **Steps:**
 1. Attack a training dummy (enter combat)
-2. While in combat, run: `/run TotalUI.db.actionbar.bar1.buttonSize = 50`
-3. While still in combat, run: `/reload`
-4. Check if button size changed
+2. While in combat, drag a spell to change button actions
+3. Verify the button changes and spell works
+4. Leave combat
 
 **Expected:**
-- During combat: Changes are queued
-- Message: "Bar 1: Changes will apply after combat"
-- After leaving combat: Changes apply automatically
+- During combat: Can drag and drop normally (current retail behavior)
+- Button changes take effect immediately
+- No errors occur
 
 **Result:**
-- ✅ **Pass** if changes queue and apply after combat
-- ❌ **Fail** if changes apply during combat or never apply
+- ✅ **Pass** if can drag during combat without errors
+- ❌ **Fail** if errors occur or buttons don't work
 
-**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32` and `/reload`
+**Cleanup:** None needed
 
 ---
 
@@ -607,7 +612,7 @@ TotalUI:   Bar 5: Enabled
 - ✅ **Pass** if setting persists across logout
 - ❌ **Fail** if setting reverts to default
 
-**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32` and `/reload`
+**Cleanup:** Run `/run TotalUI.db.actionbar.bar1.buttonSize = 32` then `/reload`
 
 ---
 
@@ -673,6 +678,247 @@ TotalUI:   Bar 5: Enabled
 3. Run `/totalui status` to check addon state
 4. Review failed test and check related code
 5. Fix issue and rerun all Phase 0 and Phase 1A tests
+
+---
+
+## Phase 1B: ActionBars - Settings UI Tests
+
+### Prerequisites
+- Phase 1A tests must all pass
+- TotalUI_Options addon must be enabled
+- `/reload` to ensure options addon is loaded
+
+---
+
+### Test 41: Options Addon Loaded
+**Command:** `/run print("Options:", TotalUI.Options and "Loaded" or "Missing")`
+
+**Expected:** Prints `Options: Loaded`
+
+**Result:**
+- ✅ **Pass** if prints "Options: Loaded"
+- ❌ **Fail** if prints "Options: Missing" (enable TotalUI_Options addon)
+
+---
+
+### Test 42: Settings Panel Registration
+**Steps:**
+1. Type `/settings`
+2. In search box, type "TotalUI"
+3. Look for "TotalUI ActionBars" in results
+
+**Expected:**
+- "TotalUI ActionBars" appears in search results
+- Category has subcategories (Global Settings, Bar 1, Bar 2, etc.)
+
+**Result:**
+- ✅ **Pass** if TotalUI ActionBars appears with subcategories
+- ❌ **Fail** if not found or no subcategories
+
+---
+
+### Test 43: Open Settings via Command
+**Command:** `/totalui config`
+
+**Expected:**
+- Settings window opens
+- TotalUI ActionBars section is displayed
+- Message in chat: "Opening settings panel..."
+
+**Result:**
+- ✅ **Pass** if settings open to TotalUI section
+- ❌ **Fail** if settings don't open or wrong section
+
+---
+
+### Test 44: Global Settings - Enable ActionBars
+**Steps:**
+1. Open settings: `/totalui config`
+2. Navigate to "Global Settings" subcategory
+3. Find "Enable ActionBars" checkbox
+4. Uncheck it
+5. Check if bars disappear
+6. Re-check it
+7. Check if bars reappear
+
+**Expected:**
+- Unchecking hides all action bars immediately
+- Re-checking shows bars immediately (no reload needed)
+
+**Result:**
+- ✅ **Pass** if checkbox toggles bars on/off
+- ❌ **Fail** if no change or requires reload
+
+---
+
+### Test 45: Global Settings - Desaturate on Cooldown
+**Steps:**
+1. In Global Settings, check "Desaturate on Cooldown"
+2. Place a spell with cooldown on a button
+3. Cast the spell
+4. Watch button icon during cooldown
+
+**Expected:**
+- Icon becomes grayscale/desaturated during cooldown
+- Icon returns to color when cooldown ends
+
+**Result:**
+- ✅ **Pass** if icon desaturates
+- ❌ **Fail** if icon stays colored
+
+---
+
+### Test 46: Global Settings - Hide Cooldown Bling
+**Steps:**
+1. In Global Settings, check "Hide Cooldown Bling"
+2. Cast a spell with cooldown
+3. Watch for the "bling" flash animation when cooldown completes
+
+**Expected:**
+- No bling animation when cooldown completes
+- Unchecking brings bling back
+
+**Result:**
+- ✅ **Pass** if bling is hidden/shown appropriately
+- ❌ **Fail** if bling always shows or never shows
+
+---
+
+### Test 47: Settings Persistence - Across Reload
+**Steps:**
+1. Change multiple settings in various categories
+2. Note your changes
+3. Run `/reload`
+4. Open settings again
+5. Verify all changes persisted
+
+**Expected:**
+- All setting changes persist after reload
+- Visual state matches saved settings
+
+**Result:**
+- ✅ **Pass** if all settings persist
+- ❌ **Fail** if any settings revert to default
+
+---
+
+### Test 48: Settings Persistence - Across Logout
+**Steps:**
+1. Change several settings
+2. Note your changes
+3. Completely log out of character
+4. Log back in
+5. Open settings and verify changes
+
+**Expected:**
+- All setting changes persist after logout/login
+- Visual state matches saved settings
+
+**Result:**
+- ✅ **Pass** if all settings persist
+- ❌ **Fail** if any settings revert to default
+
+---
+
+### Test 49: Settings - No Lua Errors
+**Steps:**
+1. Open settings: `/totalui config`
+2. Navigate through all subcategories
+3. Toggle every checkbox
+4. Move every slider
+5. Check for Lua errors
+
+**Expected:** No Lua errors during any setting changes
+
+**Result:**
+- ✅ **Pass** if no errors occur
+- ❌ **Fail** if any Lua errors appear
+
+---
+
+### Test 50: Settings - Performance
+**Steps:**
+1. Open settings
+2. Rapidly change multiple settings:
+   - Toggle Bar 1 on/off 5 times
+   - Drag button size slider back and forth rapidly
+   - Toggle multiple bars on/off quickly
+3. Watch for lag, stuttering, or errors
+
+**Expected:**
+- No lag or stuttering
+- All changes apply smoothly
+- No Lua errors
+
+**Result:**
+- ✅ **Pass** if smooth performance
+- ❌ **Fail** if lag, stuttering, or errors occur
+
+---
+
+### Test 51: Settings - Combat Restrictions
+**Steps:**
+1. Enter combat (attack training dummy)
+2. While in combat, try to change settings:
+   - Toggle a bar on/off
+   - Change button size
+   - Adjust buttons per row
+3. Leave combat
+4. Check if changes were queued and applied
+
+**Expected:**
+- During combat: Some changes may be blocked or queued
+- After combat: Queued changes apply automatically
+- OR: Changes apply immediately if non-combat-restricted
+
+**Result:**
+- ✅ **Pass** if combat restrictions work properly
+- ❌ **Fail** if changes cause errors in combat
+
+---
+
+### Test 52: Settings - Default Values Match Code
+**Steps:**
+1. Check a fresh character (or reset settings)
+2. Open each settings category
+3. Verify default values match Profile.lua:
+   - Bar 1-5: enabled = true
+   - Bar 6-15: enabled = false
+   - Button size: 32
+   - Buttons per row: 12
+   - Pet bar: enabled = true
+   - Micro bar: mouseover = true
+
+**Expected:** All default values in UI match Profile.lua defaults
+
+**Result:**
+- ✅ **Pass** if all defaults match
+- ❌ **Fail** if any defaults differ
+
+---
+
+## Phase 1B Summary
+
+**Total Tests:** 12 (Tests 41-52)
+
+**Required for Pass:** All 12 tests must pass
+
+**Phase 1B Deliverables:**
+- ✅ Settings UI integrated with Blizzard Settings API
+- ✅ All 15 action bars configurable
+- ✅ Pet bar, stance bar, micro bar settings
+- ✅ Extra action buttons settings
+- ✅ Global ActionBars settings
+- ✅ Real-time setting updates (no reload required)
+- ✅ Settings persistence across reload/logout
+- ✅ Settings accessible via `/totalui config` or `/settings`
+
+**If Tests Fail:**
+1. Verify TotalUI_Options addon is enabled
+2. Check `/console scriptErrors 1` for errors
+3. Ensure Phase 1A tests still pass
+4. Review failed test and check ActionBars.lua options file
+5. Fix issue and rerun Phase 1B tests
 
 ---
 

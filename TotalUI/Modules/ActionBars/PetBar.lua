@@ -105,7 +105,7 @@ function PetBar:CreateButton(buttonID, LTAB)
 
     -- Set the button type to PET
     -- This tells LibTotalActionButtons to use pet action APIs instead of regular action APIs
-    LTAB:SetButtonType(button, LTAB.ButtonType.PET, petActionID)
+    LTAB:SetState(button, 0, LTAB.ButtonType.PET, petActionID)
 
     -- Set size using LibTotalActionButtons (properly resizes all button elements)
     LTAB:SetButtonSize(button, self.db.buttonSize, self.db.buttonHeight or self.db.buttonSize)
@@ -372,6 +372,12 @@ function PetBar:Update()
 
     -- Update configuration reference
     self.db = E.db.actionbar.barPet
+
+    -- Check if ActionBars module is globally disabled
+    if not E.db.actionbar.enable then
+        self.frame:Hide()
+        return
+    end
 
     if not self.db or not self.db.enabled then
         self.frame:Hide()

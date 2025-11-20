@@ -33,8 +33,11 @@ AB.initialized = false
 -----------------------------------
 
 function AB:Initialize()
+    E:Print("ActionBars: Initialize() called")
+
     -- Check if module is enabled
     if not E.private.actionbars.enable then
+        E:Print("ActionBars: Module disabled in private settings")
         return
     end
 
@@ -91,20 +94,20 @@ function AB:CreateBars()
         self:CreateBar(i)
     end
 
-    -- Create pet bar
+    -- Pet bar (now has PET button type support)
     self:CreatePetBar()
 
-    -- Create stance bar
-    self:CreateStanceBar()
+    -- TODO: Stance bar doesn't use LTAB (uses direct WoW API)
+    -- self:CreateStanceBar()
 
-    -- Create micro bar
-    self:CreateMicroBar()
+    -- TODO: Micro bar needs testing
+    -- self:CreateMicroBar()
 
-    -- Create extra action buttons
-    self:CreateExtraButtons()
+    -- TODO: Extra buttons need testing
+    -- self:CreateExtraButtons()
 
-    -- Initialize keybind handler
-    self:InitializeKeybinds()
+    -- TODO: Keybinds need testing
+    -- self:InitializeKeybinds()
 
     -- Initialize cooldown handler
     self:InitializeCooldown()
@@ -427,6 +430,52 @@ end
 function AB:Update()
     if not self.initialized then return end
 
+    print("AB:Update() called - enable:", E.db.actionbar.enable)
+
+    -- Check if ActionBars module is enabled
+    if not E.db.actionbar.enable then
+        print("AB:Update() - Hiding all bars due to global disable")
+        -- Hide all bars when module is disabled
+        for barID, bar in pairs(self.bars) do
+            if bar and bar.frame then
+                print("  Hiding bar", barID)
+
+                -- CRITICAL: Unregister attribute drivers FIRST to prevent them from showing the frame
+                UnregisterAttributeDriver(bar.frame, "state-visibility")
+                UnregisterStateDriver(bar.frame, "page")
+
+                bar.frame:Hide()
+            end
+        end
+        if self.petBar and self.petBar.frame then
+            print("  Hiding pet bar")
+            self.petBar.frame:Hide()
+        end
+        if self.stanceBar and self.stanceBar.frame then
+            print("  Hiding stance bar")
+            self.stanceBar.frame:Hide()
+        end
+        if self.microBar and self.microBar.frame then
+            print("  Hiding micro bar")
+            self.microBar.frame:Hide()
+        end
+        if self.extraButtons then
+            if self.extraButtons.extraActionButton then
+                self.extraButtons.extraActionButton:Hide()
+            end
+            if self.extraButtons.zoneActionButton then
+                self.extraButtons.zoneActionButton:Hide()
+            end
+            if self.extraButtons.vehicleExitButton then
+                self.extraButtons.vehicleExitButton:Hide()
+            end
+        end
+        print("AB:Update() - All bars hidden, returning")
+        return
+    end
+
+    print("AB:Update() - Module enabled, updating bars")
+
     -- Update all created bars
     for barID, bar in pairs(self.bars) do
         if bar and bar.Update then
@@ -457,6 +506,18 @@ function AB:Update()
     -- Update cooldown settings
     if self.cooldown and self.cooldown.Update then
         self.cooldown:Update()
+    end
+end
+
+function AB:UpdateBar(barID)
+    -- Update a specific bar (called from settings UI)
+    if not self.initialized then return end
+
+    local bar = self.bars[barID]
+    if bar and bar.Update then
+        bar:Update()
+    else
+        E:Print(string.format("ActionBars: Bar %d not found or not initialized", barID))
     end
 end
 

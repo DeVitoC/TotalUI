@@ -113,13 +113,25 @@ function E:OnLogin()
         self:Initialize()
     end
 
-    -- Initialize modules
+    -- Initialize modules FIRST
     for name, module in pairs(self.modules) do
         if module.Initialize then
             local success, err = pcall(module.Initialize, module)
             if not success then
                 print("|cff1784d1TotalUI|r: Error initializing module " .. name .. ": " .. tostring(err))
             end
+        end
+    end
+
+    -- Load options addon AFTER modules are initialized
+    local loadFunc = C_AddOns and C_AddOns.LoadAddOn or LoadAddOn
+    local loaded, reason = loadFunc("TotalUI_Options")
+    if loaded then
+        self:Print("Options loaded")
+    elseif reason then
+        -- Only print if there's an actual error (not just "not installed")
+        if reason ~= "DISABLED" and reason ~= "MISSING" then
+            self:Print("Options failed to load:", reason)
         end
     end
 end

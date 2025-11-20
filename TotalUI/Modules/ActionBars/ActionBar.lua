@@ -147,6 +147,7 @@ function ActionBar:BuildButtonConfig()
     return {
         clickOnDown = true,
         showGrid = db.showGrid,
+        desaturateUnusable = globalDB.desaturateOnCooldown,
         colors = {
             range = colorToArray(globalDB.noRangeColor),
             mana = colorToArray(globalDB.noPowerColor),
@@ -301,8 +302,33 @@ function ActionBar:SetupPaging()
     local pagingString = CLASS_PAGING[playerClass]
 
     if pagingString then
-        -- Set up paging for this class
-        RegisterAttributeDriver(self.frame, "state-page", pagingString)
+        -- Set up paging driver - this changes the frame's page state based on form/stance
+        -- The page string format: "[condition] pageNum; [condition] pageNum; defaultPage"
+        -- For Druid: bear=7, cat=8, moonkin=9, treant=10
+        RegisterStateDriver(self.frame, "page", pagingString)
+
+        -- Set up a secure snippet on the frame to update button actions when page changes
+        self.frame:SetAttribute("_onstate-page", [[
+            local page = tonumber(newstate) or 1
+            for i = 1, 12 do
+                local button = self:GetFrameRef("button"..i)
+                if button then
+                    -- Calculate new action ID: (page-1)*12 + buttonNum
+                    -- Page 1, button 1 = action 1
+                    -- Page 7, button 1 = action 73 (bear form)
+                    local action = (page - 1) * 12 + i
+                    button:SetAttribute("action", action)
+                    button:CallMethod("UpdateAction")
+                end
+            end
+        ]])
+
+        -- Register button frame refs so the secure snippet can access them
+        for i, button in ipairs(self.buttons) do
+            if button then
+                self.frame:SetFrameRef("button"..i, button)
+            end
+        end
     end
 end
 
@@ -363,6 +389,9 @@ end
 -----------------------------------
 
 function ActionBar:Update()
+    -- DEBUG
+    print(string.format("Bar %d Update() called - global enable: %s, visible: %s", self.id, tostring(E.db.actionbar.enable), tostring(self.frame:IsVisible())))
+
     -- Check combat
     if InCombatLockdown() then
         E:QueueAfterCombat(function()
@@ -375,7 +404,20 @@ function ActionBar:Update()
     -- Update configuration reference
     self.db = E.db.actionbar["bar" .. self.id]
 
+    -- Check if ActionBars module is globally disabled
+    if not E.db.actionbar.enable then
+        print(string.format("Bar %d: HIDING due to global disable", self.id))
+        -- Unregister any attribute drivers that might show the frame
+        UnregisterAttributeDriver(self.frame, "state-visibility")
+        UnregisterStateDriver(self.frame, "page")
+        self.frame:Hide()
+        return
+    end
+
     if not self.db or not self.db.enabled then
+        -- Unregister any attribute drivers that might show the frame
+        UnregisterAttributeDriver(self.frame, "state-visibility")
+        UnregisterStateDriver(self.frame, "page")
         self.frame:Hide()
         return
     end
@@ -400,6 +442,9 @@ function ActionBar:Update()
 
             -- Additional styling
             self:StyleButton(button)
+
+            -- Force visual update to apply new config (e.g., desaturation changes)
+            LTAB:UpdateUsable(button)
         end
     end
 

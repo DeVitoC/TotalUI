@@ -220,6 +220,21 @@ function ExtraButtons:Update()
     -- Update configuration reference
     self.db = E.db.actionbar
 
+    -- Check if ActionBars module is globally disabled
+    if not self.db.enable then
+        -- Hide all extra buttons
+        if self.frames.extraAction then
+            self.frames.extraAction:Hide()
+        end
+        if self.frames.zoneAction then
+            self.frames.zoneAction:Hide()
+        end
+        if self.frames.vehicleExit then
+            self.frames.vehicleExit:Hide()
+        end
+        return
+    end
+
     -- Update each button
     if self.frames.extraAction then
         local db = self.db.extraActionButton

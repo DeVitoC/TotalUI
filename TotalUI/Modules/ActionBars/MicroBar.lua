@@ -279,6 +279,12 @@ function MicroBar:Update()
     -- Update configuration reference
     self.db = E.db.actionbar.microbar
 
+    -- Check if ActionBars module is globally disabled
+    if not E.db.actionbar.enable then
+        self:Hide()
+        return
+    end
+
     if not self.db or not self.db.enabled then
         self:Hide()
         return

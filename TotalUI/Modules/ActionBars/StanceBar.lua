@@ -433,6 +433,12 @@ function StanceBar:Update()
     -- Update configuration reference
     self.db = E.db.actionbar.barStance
 
+    -- Check if ActionBars module is globally disabled
+    if not E.db.actionbar.enable then
+        self.frame:Hide()
+        return
+    end
+
     if not self.db or not self.db.enabled then
         self.frame:Hide()
         return

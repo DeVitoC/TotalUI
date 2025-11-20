@@ -46,21 +46,48 @@ E.ProfileDefaults = {
         -- Global settings
         lockActionBars = false,
         globalFadeAlpha = 1,
+        transparent = false,  -- Transparent button backgrounds
         transparentBackdrops = false,
         desaturateOnCooldown = true,
         flashAnimation = true,
+        handleOverlay = true,
         equippedItem = true,
         equippedItemColor = {r = 0.1, g = 0.6, b = 0.1},
 
-        -- Colors
+        -- Cooldown settings
+        hideCooldownBling = false,
+        chargeCooldown = true,
+        useDrawSwipeOnCharges = false,
+        colorSwipeNormal = {r = 0, g = 0, b = 0, a = 0.8},
+        colorSwipeLOC = {r = 0.8, g = 0.1, b = 0.1},
+
+        -- Button colors
         noRangeColor = {r = 0.8, g = 0.1, b = 0.1},
         noPowerColor = {r = 0.1, g = 0.3, b = 0.8},
         notUsableColor = {r = 0.4, g = 0.4, b = 0.4},
+        usableColor = {r = 1, g = 1, b = 1},
+        useRangeColorText = false,
 
-        -- Cooldown settings
-        colorSwipeNormal = {r = 0, g = 0, b = 0, a = 0.8},
-        colorSwipeLOC = {r = 0.8, g = 0.1, b = 0.1},
-        hideCooldownBling = false,
+        -- Cast modifiers
+        checkSelfCast = true,
+        checkFocusCast = true,
+        rightClickSelfCast = false,
+
+        -- Movement
+        movementModifier = "NONE",  -- NONE, SHIFT, CTRL, ALT
+
+        -- Profession Quality (Retail)
+        professionQuality = {
+            enable = true,
+            point = "TOPLEFT",
+            xOffset = 2,
+            yOffset = -2,
+            scale = 1,
+            alpha = 1
+        },
+
+        -- Flyouts
+        flyoutSize = 30,
 
         -- Bar 1 (Main Action Bar)
         bar1 = {
@@ -70,14 +97,16 @@ E.ProfileDefaults = {
             buttonSize = 32,
             buttonHeight = 32,
             buttonSpacing = 2,
+            keepSizeRatio = true,
+            backdrop = true,
             backdropSpacing = 4,
 
-            -- Visibility
+            -- Visibility & Alpha
             alpha = 1,
             mouseover = false,
             mouseoverAlpha = 0.2,
             clickThrough = false,
-            backdrop = true,
+            inheritGlobalFade = false,
             showGrid = true,
             visibility = "[petbattle][vehicleui][overridebar] hide; show",
 
@@ -88,6 +117,12 @@ E.ProfileDefaults = {
 
             -- Paging (class-specific action page switching)
             paging = true,
+
+            -- Target Reticle
+            targetReticle = true,
+
+            -- Flyout Direction
+            flyoutDirection = "UP",
 
             -- Text display
             hotkeytext = true,
@@ -247,6 +282,7 @@ E.ProfileDefaults = {
             buttonHeight = 30,
             buttonSpacing = 2,
             backdropSpacing = 2,
+            keepSizeRatio = true,
             alpha = 1,
             mouseover = false,
             backdrop = true,
@@ -254,6 +290,8 @@ E.ProfileDefaults = {
             xOffset = 4,
             yOffset = 4,
             hotkeytext = false,
+            style = "darkenInactive",  -- Darken non-active stances
+            visibility = "[petbattle] hide; show",
         },
 
         microbar = {
@@ -262,6 +300,7 @@ E.ProfileDefaults = {
             buttonHeight = 20,
             buttonSpacing = 2,
             backdropSpacing = 2,
+            keepSizeRatio = true,
             alpha = 1,
             mouseover = true,
             mouseoverAlpha = 0.2,
@@ -269,6 +308,8 @@ E.ProfileDefaults = {
             point = "TOPRIGHT",
             xOffset = -4,
             yOffset = -4,
+            useIcons = true,  -- Use icons instead of text
+            visibility = "[petbattle] hide; show",
         },
 
         -- Extra Action Buttons

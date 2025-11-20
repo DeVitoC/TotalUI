@@ -294,17 +294,38 @@ function E:HandleCommand(msg)
     msg = msg or ""
     -- Trim whitespace
     msg = msg:match("^%s*(.-)%s*$")
-    local cmd = msg:lower()
 
-    if cmd == "" or cmd == "help" then
+    -- Split into command and args
+    local cmd, args = msg:match("^(%S+)%s*(.*)$")
+    if not cmd then
+        cmd = msg
+        args = ""
+    end
+    cmd = cmd:lower()
+    args = args:lower()
+
+    if cmd == "" then
+        -- Bare /totalui or /tui opens config GUI
+        if self.Options and self.Options.ConfigGUI then
+            self.Options.ConfigGUI:Show()
+        else
+            self:Print("Config GUI not loaded yet. Please wait for TotalUI_Options to load.")
+        end
+    elseif cmd == "help" then
         self:Print("TotalUI Commands:")
-        self:Print("/totalui config - Open configuration")
+        self:Print("/totalui - Open configuration GUI")
+        self:Print("/totalui config - Open configuration GUI")
         self:Print("/totalui version - Show version info")
         self:Print("/totalui status - Show addon status")
-        self:Print("/totalui toggle [module] - Toggle module on/off")
-    elseif cmd == "config" then
-        -- Open config (Phase 13)
-        self:Print("Configuration UI not yet implemented (Phase 13)")
+        self:Print("/totalui actionbar [status|help] - ActionBar commands")
+        self:Print("/totalui help - Show this help")
+    elseif cmd == "config" or cmd == "settings" then
+        -- Open TotalUI config GUI
+        if self.Options and self.Options.ConfigGUI then
+            self.Options.ConfigGUI:Show()
+        else
+            self:Print("Config GUI not loaded yet. Please wait for TotalUI_Options to load.")
+        end
     elseif cmd == "version" then
         self:Print("TotalUI version " .. (self.Version or "Unknown"))
         if self.Compat then
@@ -312,8 +333,74 @@ function E:HandleCommand(msg)
         end
     elseif cmd == "status" then
         self:PrintStatus()
+    elseif cmd == "actionbar" or cmd == "actionbars" then
+        self:HandleActionBarCommand(args)
     else
         self:Print("Unknown command. Type /totalui help for commands.")
+    end
+end
+
+function E:HandleActionBarCommand(args)
+    -- Parse command and remaining args
+    local cmd, rest = args:match("^(%S+)%s*(.*)$")
+    if not cmd then
+        cmd = args
+        rest = ""
+    end
+
+    if cmd == "" or cmd == "help" then
+        self:Print("ActionBar Commands:")
+        self:Print("/totalui actionbar status - Show ActionBar module status")
+        self:Print("/totalui actionbar bars - List all bars")
+        self:Print("/totalui actionbar toggle [barNum] - Toggle bar visibility")
+    elseif cmd == "status" then
+        self:Print("ActionBar Status:")
+        -- Show all configured bars (1-15)
+        for i = 1, 15 do
+            local barKey = "bar" .. i
+            if self.db.actionbar[barKey] then
+                local enabled = self.db.actionbar[barKey].enabled
+                local status = enabled and "Enabled" or "Disabled"
+                self:Print(string.format("  Bar %d: %s", i, status))
+            end
+        end
+    elseif cmd == "bars" then
+        local AB = self:GetModule("ActionBars")
+        if AB and AB.bars then
+            self:Print("Loaded Bars:")
+            for i, bar in ipairs(AB.bars) do
+                if bar then
+                    self:Print(string.format("  Bar %d: %d buttons, enabled: %s",
+                        bar.id,
+                        #bar.buttons,
+                        tostring(bar.db.enabled)))
+                end
+            end
+        else
+            self:Print("No bars loaded")
+        end
+    elseif cmd == "toggle" then
+        local barNum = tonumber(rest)
+        if not barNum or barNum < 1 or barNum > 15 then
+            self:Print("Usage: /totalui actionbar toggle [1-15]")
+            return
+        end
+
+        local barKey = "bar" .. barNum
+        if self.db.actionbar[barKey] then
+            local currentState = self.db.actionbar[barKey].enabled
+            self.db.actionbar[barKey].enabled = not currentState
+
+            if currentState then
+                self:Print(string.format("Bar %d disabled (requires /reload)", barNum))
+            else
+                self:Print(string.format("Bar %d enabled (requires /reload)", barNum))
+            end
+        else
+            self:Print(string.format("Bar %d not found in database", barNum))
+        end
+    else
+        self:Print("Unknown actionbar command. Type /totalui actionbar help")
     end
 end
 

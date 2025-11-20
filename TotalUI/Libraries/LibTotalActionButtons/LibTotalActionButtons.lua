@@ -451,6 +451,7 @@ print(string.format("|cff1784d1TotalUI|r: %s loaded (%s)", LTAB.VERSION_STRING, 
 -- Button type enum (Phase 2 Step 2.1)
 LTAB.ButtonType = {
     ACTION = "action",
+    PET = "pet",
     SPELL = "spell",
     ITEM = "item",
     MACRO = "macro",
@@ -612,6 +613,130 @@ local ActionTypeUpdateFunctions = {
 }
 
 LTAB.ActionTypeUpdateFunctions = ActionTypeUpdateFunctions
+
+-----------------------------------
+-- BUTTON TYPE: PET (Phase 1 ActionBars)
+-----------------------------------
+
+local PetActionTypeUpdateFunctions = {
+    -- Query functions
+    HasAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
+        local name, texture = GetPetActionInfo(self.buttonAction)
+        return name ~= nil
+    end,
+
+    GetActionTexture = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
+        local name, texture = GetPetActionInfo(self.buttonAction)
+        return texture
+    end,
+
+    GetActionText = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
+        local name = GetPetActionInfo(self.buttonAction)
+        return name
+    end,
+
+    GetActionCount = function(self)
+        -- Pet actions don't have count
+        return 0
+    end,
+
+    GetActionCharges = function(self)
+        -- Pet actions don't have charges
+        return nil
+    end,
+
+    -- State functions
+    IsInRange = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
+        local name, texture, isToken, isActive, autoCastAllowed, autoCastEnabled, spellID, checksRange, inRange = GetPetActionInfo(self.buttonAction)
+        if checksRange then
+            return inRange
+        end
+        return nil
+    end,
+
+    IsUsableAction = function(self)
+        -- Pet actions are always "usable" if they exist
+        -- The isActive flag from GetPetActionInfo handles enabled/disabled state
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
+        local name = GetPetActionInfo(self.buttonAction)
+        return name ~= nil
+    end,
+
+    IsCurrentAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
+        local name, texture, isToken, isActive = GetPetActionInfo(self.buttonAction)
+        return isActive or false
+    end,
+
+    IsAutoRepeatAction = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return false
+        end
+        local name, texture, isToken, isActive, autoCastAllowed, autoCastEnabled = GetPetActionInfo(self.buttonAction)
+        return autoCastEnabled or false
+    end,
+
+    IsAttackAction = function(self)
+        -- Pet attacks can be identified by checking if they're auto-repeat
+        return self.UpdateFunctions.IsAutoRepeatAction(self)
+    end,
+
+    IsEquippedAction = function(self)
+        -- Pet actions are never equipped items
+        return false
+    end,
+
+    IsConsumableAction = function(self)
+        -- Pet actions are never consumables
+        return false
+    end,
+
+    -- Cooldown functions
+    GetCooldown = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return 0, 0, 0
+        end
+        return GetPetActionCooldown(self.buttonAction)
+    end,
+
+    GetLossOfControlCooldown = function(self)
+        -- Pet actions don't have loss of control cooldown
+        return 0, 0
+    end,
+
+    -- Spell ID for proc detection
+    GetSpellId = function(self)
+        if not self.buttonAction or self.buttonAction == 0 then
+            return nil
+        end
+        local name, texture, isToken, isActive, autoCastAllowed, autoCastEnabled, spellID = GetPetActionInfo(self.buttonAction)
+        return spellID
+    end,
+
+    -- Phase 13 Feature #1: Get passive cooldown spell ID
+    GetPassiveCooldownSpellID = function(self)
+        -- Pet actions don't have passive cooldowns
+        return nil
+    end,
+}
+
+LTAB.PetActionTypeUpdateFunctions = PetActionTypeUpdateFunctions
 
 -----------------------------------
 -- BUTTON TYPE: SPELL (Phase 2 Step 2.3)
@@ -1070,12 +1195,32 @@ function LTAB:CreateButton(actionID, name, parent, config, skipUpdate)
     self:StyleButton(button, config)
     self:RegisterButton(button)
 
-    -- Phase 12: Set up secure features if button has a secure header
-    if button.header then
+    -- Phase 12: Set up secure features
+    -- For ACTION buttons, always set up secure handlers (even without a header)
+    -- This enables combat lockdown protection for drag/drop
+    if button.buttonType == LTAB.ButtonType.ACTION then
         -- Initialize secure state attributes
         button:SetAttribute("state", "0")
         button:SetAttribute("labtype-0", "action")
         button:SetAttribute("labaction-0", actionID)
+
+        -- Set type to action for Blizzard's secure system
+        button:SetAttribute("type", "action")
+        button:SetAttribute("action", actionID)
+
+        -- ACTION buttons need combat lockdown, set up minimal header for them
+        if not button.header and parent and parent.GetAttribute then
+            button.header = parent
+        end
+    end
+
+    -- Set up secure snippets if button has a secure header
+    if button.header then
+        if button.buttonType == LTAB.ButtonType.ACTION and not button:GetAttribute("labtype-0") then
+            button:SetAttribute("state", "0")
+            button:SetAttribute("labtype-0", "action")
+            button:SetAttribute("labaction-0", actionID)
+        end
 
         -- Set up secure snippets for combat functionality
         self:SetupSecureSnippets(button)
@@ -1099,6 +1244,13 @@ function LTAB:CreateButton(actionID, name, parent, config, skipUpdate)
 end
 
 function LTAB:InitializeButton(button)
+    -- CRITICAL: Disable Blizzard's insecure drag handlers from ActionBarButtonTemplate
+    -- These would allow dragging during combat, breaking secure frame protection
+    -- We'll use only secure handlers set up in SetupSecureSnippets
+    button:SetScript("PreClick", nil)
+    button:RegisterForDrag()  -- Clear all drag types
+    button:RegisterForClicks("AnyUp", "AnyDown")
+
     -- Get references to button elements
     button._icon = button.icon or _G[button:GetName() .. "Icon"]
     button._count = button.Count or _G[button:GetName() .. "Count"]
@@ -1219,11 +1371,22 @@ function LTAB:SetupButtonScripts(button)
     end)
 
     -- Phase 5: Drag & Drop scripts
+    -- NOTE: For ACTION buttons, drag/drop is handled by secure snippets only
+    -- Regular scripts would break combat lockdown
+    -- Only set these for non-ACTION buttons (spell, item, macro, custom)
     button:SetScript("OnDragStart", function(self)
+        -- ACTION buttons use secure handlers only (no insecure drag)
+        if self.buttonType == LTAB.ButtonType.ACTION then
+            return
+        end
         LTAB:OnDragStart(self)
     end)
 
     button:SetScript("OnReceiveDrag", function(self)
+        -- ACTION buttons use secure handlers only (no insecure drag)
+        if self.buttonType == LTAB.ButtonType.ACTION then
+            return
+        end
         LTAB:OnReceiveDrag(self)
     end)
 
@@ -1595,7 +1758,7 @@ end
 --- Set the action for a specific state
 -- @param button The button to configure
 -- @param state The state identifier (0 = default)
--- @param buttonType The button type for this state ("action", "spell", "item", "macro", "custom")
+-- @param buttonType The button type for this state ("action", "pet", "spell", "item", "macro", "custom")
 -- @param action The action ID for this state
 function LTAB:SetState(button, state, buttonType, action)
     if not LTAB.Validate.Button(button, "SetState") then return end
@@ -1620,6 +1783,9 @@ function LTAB:SetState(button, state, buttonType, action)
         local secureType = buttonType
         if buttonType == LTAB.ButtonType.ACTION then
             button:SetAttribute(string.format("*type-s%s", state), "action")
+            button:SetAttribute(string.format("*action-s%s", state), action)
+        elseif buttonType == LTAB.ButtonType.PET then
+            button:SetAttribute(string.format("*type-s%s", state), "pet")
             button:SetAttribute(string.format("*action-s%s", state), action)
         elseif buttonType == LTAB.ButtonType.SPELL then
             button:SetAttribute(string.format("*type-s%s", state), "spell")
@@ -1740,6 +1906,12 @@ function LTAB:UpdateButtonState(button)
         if button.config and button.config.actionButtonUI and self.WoWRetail then
             self:RegisterActionUI(button)
         end
+    elseif buttonType == LTAB.ButtonType.PET then
+        button:SetAttribute("type", "pet")
+        button:SetAttribute("action", action)
+        button.action = action  -- Pet actions use the action property
+        button.UpdateFunctions = LTAB.PetActionTypeUpdateFunctions
+        self:DebugPrint(string.format("  Set PET: action=%s", tostring(button.action)))
     elseif buttonType == LTAB.ButtonType.SPELL then
         button:SetAttribute("type", "spell")
         button:SetAttribute("spell", action)
@@ -1940,7 +2112,23 @@ end
 
 function LTAB:UpdateAction(button)
     local action = button.action
-    if not action then return end
+
+    -- Initialize state if needed
+    button._state = button._state or {}
+
+    -- If no action, mark as empty and return
+    if not action or action == 0 then
+        local previousHasAction = button._state.hasAction
+        button._state.hasAction = false
+        button._state.actionType = nil
+        button._state.actionID = nil
+
+        -- Fire callback if changed from having action to no action
+        if previousHasAction then
+            self:FireCallback("OnButtonContentsChanged", button)
+        end
+        return
+    end
 
     -- Use UpdateFunctions for type-specific HasAction check
     local hasAction
@@ -2987,6 +3175,16 @@ function LTAB:UpdateUsable(button)
     button._state.usable = isUsable
     button._state.hasPower = not notEnoughMana
 
+    -- Check if button is on cooldown
+    local onCooldown = false
+    if button.UpdateFunctions and button.UpdateFunctions.GetCooldown then
+        local start, duration = button.UpdateFunctions.GetCooldown(button)
+        onCooldown = start and duration and start > 0 and duration > 0
+    elseif button.action then
+        local start, duration = GetActionCooldown(button.action)
+        onCooldown = start and duration and start > 0 and duration > 0
+    end
+
     -- Get mana coloring mode from config (Phase 6)
     local manaColoringMode = "button" -- default
     if button.config and button.config.outOfManaColoring then
@@ -3005,7 +3203,7 @@ function LTAB:UpdateUsable(button)
     -- Guard against uninitialized button (called before StyleButton)
     if not button._colors then
         -- Just set basic usability without colors
-        if isUsable then
+        if isUsable and not onCooldown then
             button._icon:SetDesaturated(false)
             button._icon:SetVertexColor(1, 1, 1)
         else
@@ -3015,8 +3213,8 @@ function LTAB:UpdateUsable(button)
         return
     end
 
-    if isUsable then
-        -- Usable - normal color, no desaturation
+    if isUsable and not onCooldown then
+        -- Usable and not on cooldown - normal color, no desaturation
         button._icon:SetDesaturated(false)
         button._icon:SetVertexColor(1, 1, 1)
         -- Also restore hotkey color if it was tinted
@@ -3028,6 +3226,11 @@ function LTAB:UpdateUsable(button)
                 button._hotkey:SetVertexColor(1, 1, 1, 1)
             end
         end
+    elseif onCooldown then
+        -- On cooldown - desaturate and gray out
+        local color = button._colors.unusable
+        button._icon:SetDesaturated(desaturateUnusable)
+        button._icon:SetVertexColor(color[1], color[2], color[3])
     elseif notEnoughMana then
         -- Out of power - apply coloring based on mode
         local color = button._colors.mana
@@ -3173,26 +3376,31 @@ end
 function LTAB:UpdateGrid(button)
     if not button then return end
 
-    if button._state.hasAction then
+    if button._state and button._state.hasAction then
         -- Has action: always show button normally
+        button:Show()
         button:SetAlpha(1)
         if button._normalTexture then
             button._normalTexture:SetAlpha(1)
+        end
+        if button._icon then
+            button._icon:Show()
         end
     else
         -- No action: show grid or hide based on _showGrid
         if button._showGrid then
             -- Show grid: show button with reduced opacity for empty state
+            button:Show()
             button:SetAlpha(1)
             if button._normalTexture then
                 button._normalTexture:SetAlpha(0.5)
             end
-        else
-            -- Hide grid: hide the normal texture but keep button interactive
-            button:SetAlpha(1)  -- Keep button frame visible for interaction
-            if button._normalTexture then
-                button._normalTexture:SetAlpha(0)  -- Hide only the visual texture
+            if button._icon then
+                button._icon:Show()
             end
+        else
+            -- Hide grid: completely hide the button
+            button:Hide()
         end
     end
 end
@@ -3311,6 +3519,8 @@ function LTAB:OnButtonEvent(button, event, ...)
         self:UpdateUsable(button)
     elseif event == "ACTIONBAR_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_COOLDOWN" then
         self:UpdateCooldown(button)
+        -- When cooldown completes, spell becomes usable again - update usable state
+        self:UpdateUsable(button)
     elseif event == "ACTIONBAR_UPDATE_STATE" or event == "SPELL_UPDATE_USABLE" then
         self:UpdateVisualState(button)
         self:UpdateUsable(button)
@@ -5972,6 +6182,10 @@ function LTAB:SetupSecureSnippets(button)
         if kind == "empty" then
             return "clear"
         elseif kind == "action" or kind == "pet" then
+            -- Don't pickup if action is nil or 0 (invalid slot)
+            if not value or value == 0 then
+                return "clear"
+            end
             local actionType = (kind == "pet") and "petaction" or kind
             return actionType, value
         elseif kind == "spell" or kind == "item" or kind == "macro" then
@@ -5999,6 +6213,11 @@ function LTAB:SetupSecureSnippets(button)
         -- Get the action value
         local action_field = self:GetAttribute("action_field")
         local action = self:GetAttribute(action_field)
+
+        -- If action is invalid (nil or 0), treat as empty
+        if not action or action == 0 then
+            return false
+        end
 
         -- Non-action buttons need to clear themselves when dragged
         if type ~= "action" and type ~= "pet" then
@@ -6083,6 +6302,9 @@ function LTAB:SetupSecureSnippets(button)
     ]], [[
         self:RunAttribute("UpdateState", self:GetAttribute("state"))
     ]])
+
+    -- Enable dragging now that secure handlers are in place
+    button:RegisterForDrag("LeftButton")
 
     self:DebugPrint(string.format("SetupSecureSnippets: %s configured", button:GetName() or "unnamed"))
 end

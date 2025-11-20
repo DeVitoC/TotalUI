@@ -21,9 +21,11 @@
 
 # Core
 Core\Init.lua
+Core\ConfigGUI.lua
 
-# Options Panels (Phase 13 - will be populated later)
-# Options\General.lua
-# Options\ActionBars.lua
-# Options\UnitFrames.lua
+# Options Panels
+Options\ActionBars.lua
+# Options\General.lua (TODO)
+# Options\UnitFrames.lua (TODO - Phase 2)
+# Options\Nameplates.lua (TODO - Phase 3)
 # etc...
