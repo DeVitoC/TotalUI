@@ -27,17 +27,15 @@ AB.extraButtons = nil
 AB.keybinds = nil
 AB.cooldown = nil
 AB.initialized = false
+AB.blizzardState = {} -- Store original Blizzard frame state for restoration
 
 -----------------------------------
 -- INITIALIZATION
 -----------------------------------
 
 function AB:Initialize()
-    E:Print("ActionBars: Initialize() called")
-
     -- Check if module is enabled
     if not E.private.actionbars.enable then
-        E:Print("ActionBars: Module disabled in private settings")
         return
     end
 
@@ -56,7 +54,6 @@ function AB:Initialize()
 
     -- Store reference for convenience
     self.LTAB = LTAB
-    E:Print(string.format("ActionBars: Using %s", LTAB.VERSION_STRING))
 
     -- Hide Blizzard action bars
     self:HideBlizzard()
@@ -117,7 +114,6 @@ function AB:CreateBar(barID)
     local db = E.db.actionbar["bar" .. barID]
 
     if not db then
-        E:Print(string.format("ActionBars: No configuration for bar%d", barID))
         return
     end
 
@@ -130,9 +126,6 @@ function AB:CreateBar(barID)
 
     if bar then
         self.bars[barID] = bar
-        E:Print(string.format("Created Bar %d", barID))
-    else
-        E:Print(string.format("Failed to create Bar %d", barID))
     end
 end
 
@@ -140,7 +133,6 @@ function AB:CreatePetBar()
     local db = E.db.actionbar.barPet
 
     if not db then
-        E:Print("ActionBars: No configuration for pet bar")
         return
     end
 
@@ -150,7 +142,6 @@ function AB:CreatePetBar()
 
     -- Check if PetBar class loaded
     if not PetBar then
-        E:Print("ActionBars: Failed to load PetBar class")
         return
     end
 
@@ -159,9 +150,6 @@ function AB:CreatePetBar()
 
     if petBar then
         self.petBar = petBar
-        E:Print("Created Pet Bar")
-    else
-        E:Print("Failed to create Pet Bar")
     end
 end
 
@@ -169,7 +157,6 @@ function AB:CreateStanceBar()
     local db = E.db.actionbar.barStance
 
     if not db then
-        E:Print("ActionBars: No configuration for stance bar")
         return
     end
 
@@ -179,7 +166,6 @@ function AB:CreateStanceBar()
 
     -- Check if StanceBar class loaded
     if not StanceBar then
-        E:Print("ActionBars: Failed to load StanceBar class")
         return
     end
 
@@ -188,9 +174,6 @@ function AB:CreateStanceBar()
 
     if stanceBar then
         self.stanceBar = stanceBar
-        E:Print("Created Stance Bar")
-    else
-        E:Print("Failed to create Stance Bar")
     end
 end
 
@@ -198,7 +181,6 @@ function AB:CreateMicroBar()
     local db = E.db.actionbar.microbar
 
     if not db then
-        E:Print("ActionBars: No configuration for micro bar")
         return
     end
 
@@ -208,7 +190,6 @@ function AB:CreateMicroBar()
 
     -- Check if MicroBar class loaded
     if not MicroBar then
-        E:Print("ActionBars: Failed to load MicroBar class")
         return
     end
 
@@ -217,16 +198,12 @@ function AB:CreateMicroBar()
 
     if microBar then
         self.microBar = microBar
-        E:Print("Created Micro Bar")
-    else
-        E:Print("Failed to create Micro Bar")
     end
 end
 
 function AB:CreateExtraButtons()
     -- Check if ExtraButtons class loaded
     if not ExtraButtons then
-        E:Print("ActionBars: Failed to load ExtraButtons class")
         return
     end
 
@@ -235,16 +212,12 @@ function AB:CreateExtraButtons()
 
     if extraButtons then
         self.extraButtons = extraButtons
-        E:Print("Created Extra Action Buttons")
-    else
-        E:Print("Failed to create Extra Action Buttons")
     end
 end
 
 function AB:InitializeKeybinds()
     -- Check if Keybinds handler loaded
     if not Keybinds then
-        E:Print("ActionBars: Failed to load Keybinds handler")
         return
     end
 
@@ -253,16 +226,12 @@ function AB:InitializeKeybinds()
 
     if keybinds then
         self.keybinds = keybinds
-        E:Print("Keybinds system initialized")
-    else
-        E:Print("Failed to initialize keybinds")
     end
 end
 
 function AB:InitializeCooldown()
     -- Check if Cooldown handler loaded
     if not Cooldown then
-        E:Print("ActionBars: Failed to load Cooldown handler")
         return
     end
 
@@ -271,9 +240,6 @@ function AB:InitializeCooldown()
 
     if cooldown then
         self.cooldown = cooldown
-        E:Print("Cooldown system initialized")
-    else
-        E:Print("Failed to initialize cooldown")
     end
 end
 
@@ -283,7 +249,7 @@ end
 
 function AB:HideBlizzard()
     -- Hide the main action bar background art and frames
-    -- These create the gray background that shows behind our bars
+    -- Store original state for restoration when module is disabled
 
     local blizzardFrames = {
         -- Main bar
@@ -324,8 +290,15 @@ function AB:HideBlizzard()
     -- Hide and disable each frame
     for _, frame in pairs(blizzardFrames) do
         if frame then
+            -- Store original state if not already stored
+            if not self.blizzardState[frame] then
+                self.blizzardState[frame] = {
+                    parent = frame:GetParent(),
+                    show = frame.Show,
+                }
+            end
+
             frame:SetParent(E.HiddenFrame)
-            frame:UnregisterAllEvents()
             frame:Hide()
 
             -- Prevent showing
@@ -336,40 +309,209 @@ function AB:HideBlizzard()
     end
 
     -- Additional cleanup for action buttons
+    -- Note: We don't unregister events because Blizzard frames need their events to function
+    -- when we restore them. Just hiding and reparenting is sufficient.
     for i = 1, 12 do
         local button = _G["ActionButton" .. i]
         if button then
-            button:Hide()
-            button:UnregisterAllEvents()
+            if not self.blizzardState[button] then
+                self.blizzardState[button] = {
+                    parent = button:GetParent(),
+                }
+            end
             button:SetParent(E.HiddenFrame)
+            button:Hide()
         end
 
         local multiButton = _G["MultiBarBottomLeftButton" .. i]
         if multiButton then
-            multiButton:Hide()
-            multiButton:UnregisterAllEvents()
+            if not self.blizzardState[multiButton] then
+                self.blizzardState[multiButton] = {
+                    parent = multiButton:GetParent(),
+                }
+            end
             multiButton:SetParent(E.HiddenFrame)
+            multiButton:Hide()
         end
 
         multiButton = _G["MultiBarBottomRightButton" .. i]
         if multiButton then
-            multiButton:Hide()
-            multiButton:UnregisterAllEvents()
+            if not self.blizzardState[multiButton] then
+                self.blizzardState[multiButton] = {
+                    parent = multiButton:GetParent(),
+                }
+            end
             multiButton:SetParent(E.HiddenFrame)
+            multiButton:Hide()
         end
 
         multiButton = _G["MultiBarRightButton" .. i]
         if multiButton then
-            multiButton:Hide()
-            multiButton:UnregisterAllEvents()
+            if not self.blizzardState[multiButton] then
+                self.blizzardState[multiButton] = {
+                    parent = multiButton:GetParent(),
+                }
+            end
             multiButton:SetParent(E.HiddenFrame)
+            multiButton:Hide()
         end
 
         multiButton = _G["MultiBarLeftButton" .. i]
         if multiButton then
-            multiButton:Hide()
-            multiButton:UnregisterAllEvents()
+            if not self.blizzardState[multiButton] then
+                self.blizzardState[multiButton] = {
+                    parent = multiButton:GetParent(),
+                }
+            end
             multiButton:SetParent(E.HiddenFrame)
+            multiButton:Hide()
+        end
+    end
+end
+
+function AB:ShowBlizzard()
+    -- Restore Blizzard's default action bars
+    -- Called when ActionBars module is disabled
+
+    -- First, restore all stored frame states
+    for frame, state in pairs(self.blizzardState) do
+        if frame and state then
+            -- Restore parent
+            if state.parent then
+                frame:SetParent(state.parent)
+            end
+
+            -- Restore Show method
+            if state.show then
+                frame.Show = state.show
+            else
+                -- If we don't have stored Show method, remove our override
+                frame.Show = nil
+            end
+        end
+    end
+
+    -- Force restoration of key frames
+    -- MainMenuBar
+    if MainMenuBar then
+        MainMenuBar:SetParent(UIParent)
+        MainMenuBar.Show = nil
+        MainMenuBar:SetShown(true)
+        MainMenuBar:SetAlpha(1)
+    end
+
+    if MainMenuBarArtFrame then
+        MainMenuBarArtFrame:SetParent(UIParent)
+        MainMenuBarArtFrame.Show = nil
+        MainMenuBarArtFrame:SetShown(true)
+        MainMenuBarArtFrame:SetAlpha(1)
+    end
+
+    -- MultiBar frames
+    local multiBarNames = {
+        "MultiBarBottomLeft",
+        "MultiBarBottomRight",
+        "MultiBarRight",
+        "MultiBarLeft",
+        "MultiBar5",
+        "MultiBar6",
+        "MultiBar7"
+    }
+
+    for _, barName in ipairs(multiBarNames) do
+        local bar = _G[barName]
+        if bar then
+            bar:SetParent(UIParent)
+            bar.Show = nil
+            bar:SetShown(true)
+            bar:SetAlpha(1)
+        end
+    end
+
+    -- Pet bar
+    if PetActionBarFrame then
+        PetActionBarFrame:SetParent(UIParent)
+        PetActionBarFrame.Show = nil
+        PetActionBarFrame:SetShown(true)
+        PetActionBarFrame:SetAlpha(1)
+    end
+
+    -- Stance bar
+    if StanceBarFrame then
+        StanceBarFrame:SetParent(UIParent)
+        StanceBarFrame.Show = nil
+        StanceBarFrame:SetShown(true)
+        StanceBarFrame:SetAlpha(1)
+    end
+
+    -- Micro menu
+    if MicroButtonAndBagsBar then
+        MicroButtonAndBagsBar:SetParent(UIParent)
+        MicroButtonAndBagsBar.Show = nil
+        MicroButtonAndBagsBar:SetShown(true)
+        MicroButtonAndBagsBar:SetAlpha(1)
+    end
+
+    -- Status tracking
+    if StatusTrackingBarManager then
+        StatusTrackingBarManager:SetParent(UIParent)
+        StatusTrackingBarManager.Show = nil
+        StatusTrackingBarManager:SetShown(true)
+        StatusTrackingBarManager:SetAlpha(1)
+    end
+
+    -- Restore action buttons
+    for i = 1, 12 do
+        local btn = _G["ActionButton" .. i]
+        if btn then
+            btn:SetParent(MainMenuBar or UIParent)
+            btn:SetShown(true)
+        end
+    end
+
+    -- Try to refresh Blizzard's UI
+    if MainMenuBar then
+        if MainMenuBar.UpdateAll then
+            MainMenuBar:UpdateAll()
+        end
+        if MainMenuBar.Layout then
+            MainMenuBar:Layout()
+        end
+    end
+
+    -- Force UI update
+    if UIParent_ManageFramePositions then
+        UIParent_ManageFramePositions()
+    end
+
+    -- If EditMode exists (retail), refresh it
+    if EditModeManagerFrame then
+        -- Refresh each individual bar system in EditMode
+        -- Note: We skip UpdateLayoutInfo() as it can fail if EditMode isn't fully initialized
+        local barSystems = {
+            "ActionBar",
+            "MultiBarBottomLeft",
+            "MultiBarBottomRight",
+            "MultiBarLeft",
+            "MultiBarRight",
+            "MultiBar5",
+            "MultiBar6",
+            "MultiBar7",
+            "PetActionBar",
+            "StanceBar",
+            "MicroMenu"
+        }
+
+        for _, systemName in ipairs(barSystems) do
+            local system = EditModeManagerFrame.editModeSystemsCache and EditModeManagerFrame.editModeSystemsCache[systemName]
+            if system then
+                if system.UpdateVisibility then
+                    system:UpdateVisibility()
+                end
+                if system.SetShown then
+                    system:SetShown(true)
+                end
+            end
         end
     end
 end
@@ -430,16 +572,11 @@ end
 function AB:Update()
     if not self.initialized then return end
 
-    print("AB:Update() called - enable:", E.db.actionbar.enable)
-
     -- Check if ActionBars module is enabled
     if not E.db.actionbar.enable then
-        print("AB:Update() - Hiding all bars due to global disable")
-        -- Hide all bars when module is disabled
+        -- Hide all TotalUI bars
         for barID, bar in pairs(self.bars) do
             if bar and bar.frame then
-                print("  Hiding bar", barID)
-
                 -- CRITICAL: Unregister attribute drivers FIRST to prevent them from showing the frame
                 UnregisterAttributeDriver(bar.frame, "state-visibility")
                 UnregisterStateDriver(bar.frame, "page")
@@ -448,15 +585,12 @@ function AB:Update()
             end
         end
         if self.petBar and self.petBar.frame then
-            print("  Hiding pet bar")
             self.petBar.frame:Hide()
         end
         if self.stanceBar and self.stanceBar.frame then
-            print("  Hiding stance bar")
             self.stanceBar.frame:Hide()
         end
         if self.microBar and self.microBar.frame then
-            print("  Hiding micro bar")
             self.microBar.frame:Hide()
         end
         if self.extraButtons then
@@ -470,11 +604,15 @@ function AB:Update()
                 self.extraButtons.vehicleExitButton:Hide()
             end
         end
-        print("AB:Update() - All bars hidden, returning")
+
+        -- Restore Blizzard's default action bars
+        self:ShowBlizzard()
+
         return
     end
 
-    print("AB:Update() - Module enabled, updating bars")
+    -- Hide Blizzard bars when TotalUI bars are enabled
+    self:HideBlizzard()
 
     -- Update all created bars
     for barID, bar in pairs(self.bars) do
@@ -516,8 +654,6 @@ function AB:UpdateBar(barID)
     local bar = self.bars[barID]
     if bar and bar.Update then
         bar:Update()
-    else
-        E:Print(string.format("ActionBars: Bar %d not found or not initialized", barID))
     end
 end
 

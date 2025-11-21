@@ -325,9 +325,12 @@ local function CreateGlobalActionBarsPanel(parent)
     yOffsetLeft = yOffsetLeft - 30
 
     -- Lock ActionBars (left column)
-    local lockCB = CreateCheckbox(content, "Lock ActionBars", "Prevent action bars from being moved",
+    local lockCB = CreateCheckbox(content, "Lock ActionBars", "Prevent abilities from being moved on action bars (when unlocked, hold modifier key to drag)",
         function() return db.lockActionBars end,
-        function(value) db.lockActionBars = value end)
+        function(value)
+            db.lockActionBars = value
+            if E.modules.ActionBars then E.modules.ActionBars:Update() end
+        end)
     lockCB:SetPoint("TOPLEFT", leftX, yOffsetLeft)
     yOffsetLeft = yOffsetLeft - 40
 

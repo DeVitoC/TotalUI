@@ -42,6 +42,138 @@ function ActionBar:New(id, parent)
 end
 
 -----------------------------------
+-- BACKDROP CREATION
+-----------------------------------
+
+function ActionBar:CreateDefaultBackdrop()
+    if self.frame.defaultBackdrop then return end
+
+    -- For Bar 1, use Blizzard's actual MainMenuBar art frames
+    if self.id == 1 then
+        -- Debug: Print all available MainMenuBar frames
+        print("=== Searching for Blizzard MainMenuBar frames ===")
+        for k, v in pairs(_G) do
+            if type(k) == "string" and k:match("MainMenuBar") then
+                print("Found:", k, type(v))
+            end
+        end
+
+        -- Get references to Blizzard's gryphon/wyvern frames
+        local leftEndCap = _G.MainMenuBarLeftEndCap
+        local rightEndCap = _G.MainMenuBarRightEndCap
+        local artFrame = _G.MainMenuBarArtFrame
+
+        print("leftEndCap:", leftEndCap)
+        print("rightEndCap:", rightEndCap)
+        print("artFrame:", artFrame)
+
+        if leftEndCap and rightEndCap and artFrame then
+            print("Found all Blizzard frames! Repositioning...")
+            -- Show the art frames
+            artFrame:Show()
+            leftEndCap:Show()
+            rightEndCap:Show()
+
+            -- Clear any existing positioning
+            artFrame:ClearAllPoints()
+            leftEndCap:ClearAllPoints()
+            rightEndCap:ClearAllPoints()
+
+            -- Position the art frame to match our Bar 1
+            artFrame:SetParent(self.frame)
+            artFrame:SetFrameStrata("LOW")
+            artFrame:SetPoint("BOTTOM", self.frame, "BOTTOM", 0, -8)
+
+            -- Position the end caps relative to our bar
+            leftEndCap:SetParent(self.frame)
+            leftEndCap:SetFrameStrata("LOW")
+            leftEndCap:SetPoint("RIGHT", self.frame, "LEFT", 30, 0)
+
+            rightEndCap:SetParent(self.frame)
+            rightEndCap:SetFrameStrata("LOW")
+            rightEndCap:SetPoint("LEFT", self.frame, "RIGHT", -30, 0)
+
+            -- Store references so we can hide them later
+            self.frame.defaultBackdrop = {
+                artFrame = artFrame,
+                leftEndCap = leftEndCap,
+                rightEndCap = rightEndCap
+            }
+
+            return self.frame.defaultBackdrop
+        else
+            print("WARNING: Blizzard MainMenuBar frames not found! Using fallback texture backdrop.")
+        end
+    end
+
+    -- Fallback for other bars or if Blizzard frames don't exist
+    print(string.format("Creating fallback texture backdrop for Bar %d", self.id))
+    print(string.format("  Parent frame size: %.0fx%.0f", self.frame:GetWidth(), self.frame:GetHeight()))
+
+    -- Create a simple backdrop container
+    local backdrop = CreateFrame("Frame", "TotalUI_Bar" .. self.id .. "_DefaultBackdrop", self.frame, "BackdropTemplate")
+    backdrop:SetFrameLevel(math.max(0, self.frame:GetFrameLevel() - 1))
+    backdrop:SetAllPoints(self.frame)
+
+    -- Explicitly set size (SetAllPoints doesn't compute size immediately)
+    backdrop:SetSize(self.frame:GetWidth(), self.frame:GetHeight())
+    print(string.format("  After SetSize, backdrop size: %.0fx%.0f", backdrop:GetWidth(), backdrop:GetHeight()))
+
+    -- Use BackdropTemplate for a simple stone texture look
+    backdrop:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true,
+        tileSize = 32,
+        edgeSize = 16,
+        insets = { left = 0, right = 0, top = 0, bottom = 0 }  -- No insets = full size
+    })
+    backdrop:SetBackdropColor(0.6, 0.6, 0.6, 0.9)
+    backdrop:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+
+    -- For Bar 1, add gryphons/wyverns like the default UI
+    if self.id == 1 then
+        local faction = UnitFactionGroup("player")
+
+        -- Left gryphon/wyvern - frames the action bar like default UI
+        local leftCap = backdrop:CreateTexture(nil, "ARTWORK")
+        leftCap:SetSize(128, 128)
+        leftCap:SetPoint("BOTTOMRIGHT", backdrop, "BOTTOMLEFT", 30, -10)  -- Move closer to bar with X offset
+
+        -- Right gryphon/wyvern - frames the action bar like default UI
+        local rightCap = backdrop:CreateTexture(nil, "ARTWORK")
+        rightCap:SetSize(128, 128)
+        rightCap:SetPoint("BOTTOMLEFT", backdrop, "BOTTOMRIGHT", -30, -10)  -- Move closer to bar with X offset
+
+        if faction == "Alliance" then
+            -- Alliance uses gryphons
+            leftCap:SetTexture("Interface\\MainMenuBar\\UI-MainMenuBar-EndCap-Human")
+            rightCap:SetTexture("Interface\\MainMenuBar\\UI-MainMenuBar-EndCap-Human")
+            rightCap:SetTexCoord(1, 0, 0, 1)  -- Flip horizontally for right side
+        else
+            -- Horde uses wyverns
+            leftCap:SetTexture("Interface\\MainMenuBar\\UI-MainMenuBar-EndCap-Dwarf")
+            rightCap:SetTexture("Interface\\MainMenuBar\\UI-MainMenuBar-EndCap-Dwarf")
+            rightCap:SetTexCoord(1, 0, 0, 1)  -- Flip horizontally for right side
+        end
+
+        backdrop.leftCap = leftCap
+        backdrop.rightCap = rightCap
+
+        print(string.format("  Added %s end caps to Bar 1", faction))
+    end
+
+    print(string.format("  Backdrop created: %s, visible: %s, size: %.0fx%.0f",
+        tostring(backdrop:GetName()),
+        tostring(backdrop:IsShown()),
+        backdrop:GetWidth(),
+        backdrop:GetHeight()))
+
+    self.frame.defaultBackdrop = backdrop
+    return backdrop
+end
+
+-----------------------------------
 -- FRAME CREATION
 -----------------------------------
 
@@ -55,17 +187,25 @@ function ActionBar:Create()
     -- Store reference
     self.frame.bar = self
 
-    -- Create backdrop if enabled
-    if self.db.backdrop then
-        E:CreateBackdrop(self.frame)
-    end
-
     -- Create buttons
     self:CreateButtons()
 
     -- Initial setup
     self:PositionButtons()
-    self:UpdateBarSize()
+    self:UpdateBarSize()  -- This sets the frame size
+
+    -- Create backdrop AFTER sizing (so backdrop inherits correct size)
+    local globalDB = E.db.actionbar
+    if self.db.backdrop then
+        if globalDB.preserveDefaultAppearance then
+            -- Use default Blizzard-style backdrop
+            self:CreateDefaultBackdrop()
+        else
+            -- Use TotalUI custom backdrop
+            E:CreateBackdrop(self.frame)
+        end
+    end
+
     self:SetupVisibility()
     self:SetupPaging()
     self:SetupMouseover()
@@ -219,6 +359,10 @@ function ActionBar:StyleButton(button, buttonID)
 end
 
 function ActionBar:ConfigureButton(button, buttonID)
+    -- Set button lock state based on lockActionBars setting
+    local globalDB = E.db.actionbar
+    button._locked = globalDB.lockActionBars
+
     -- Additional button configuration can go here
     -- (keybindings, tooltips, etc.)
 end
@@ -404,6 +548,79 @@ function ActionBar:Update()
     -- Update configuration reference
     self.db = E.db.actionbar["bar" .. self.id]
 
+    -- Handle backdrop based on preserveDefaultAppearance setting
+    local globalDB = E.db.actionbar
+
+    if self.db.backdrop then
+        if globalDB.preserveDefaultAppearance then
+            -- Should have default Blizzard-style backdrop
+            -- Remove TotalUI backdrop if it exists
+            if self.frame.backdrop then
+                self.frame.backdrop:Hide()
+                self.frame.backdrop:SetParent(nil)
+                self.frame.backdrop = nil
+            end
+
+            -- Create/show default backdrop
+            if not self.frame.defaultBackdrop then
+                self:CreateDefaultBackdrop()
+            else
+                -- Show Blizzard frames if using them
+                if self.frame.defaultBackdrop.artFrame then
+                    self.frame.defaultBackdrop.artFrame:Show()
+                    self.frame.defaultBackdrop.leftEndCap:Show()
+                    self.frame.defaultBackdrop.rightEndCap:Show()
+                else
+                    -- Show custom backdrop frame
+                    self.frame.defaultBackdrop:Show()
+                end
+            end
+        else
+            -- Should have TotalUI custom backdrop
+            -- Remove default backdrop if it exists
+            if self.frame.defaultBackdrop then
+                -- Hide Blizzard frames if using them
+                if self.frame.defaultBackdrop.artFrame then
+                    self.frame.defaultBackdrop.artFrame:Hide()
+                    self.frame.defaultBackdrop.leftEndCap:Hide()
+                    self.frame.defaultBackdrop.rightEndCap:Hide()
+                else
+                    -- Hide custom backdrop frame
+                    self.frame.defaultBackdrop:Hide()
+                    self.frame.defaultBackdrop:SetParent(nil)
+                end
+                self.frame.defaultBackdrop = nil
+            end
+
+            -- Create/show TotalUI backdrop
+            if not self.frame.backdrop then
+                E:CreateBackdrop(self.frame)
+            else
+                self.frame.backdrop:Show()
+            end
+        end
+    else
+        -- No backdrop wanted - remove both if they exist
+        if self.frame.backdrop then
+            self.frame.backdrop:Hide()
+            self.frame.backdrop:SetParent(nil)
+            self.frame.backdrop = nil
+        end
+        if self.frame.defaultBackdrop then
+            -- Hide Blizzard frames if using them
+            if self.frame.defaultBackdrop.artFrame then
+                self.frame.defaultBackdrop.artFrame:Hide()
+                self.frame.defaultBackdrop.leftEndCap:Hide()
+                self.frame.defaultBackdrop.rightEndCap:Hide()
+            else
+                -- Hide custom backdrop frame
+                self.frame.defaultBackdrop:Hide()
+                self.frame.defaultBackdrop:SetParent(nil)
+            end
+            self.frame.defaultBackdrop = nil
+        end
+    end
+
     -- Check if ActionBars module is globally disabled
     if not E.db.actionbar.enable then
         print(string.format("Bar %d: HIDING due to global disable", self.id))
@@ -442,6 +659,9 @@ function ActionBar:Update()
 
             -- Additional styling
             self:StyleButton(button)
+
+            -- Update button lock state
+            button._locked = globalDB.lockActionBars
 
             -- Force visual update to apply new config (e.g., desaturation changes)
             LTAB:UpdateUsable(button)

@@ -3638,6 +3638,29 @@ function LTAB:OnDragStart(button)
     if button._locked then return end  -- Respect lock state
     if InCombatLockdown() then return end  -- No drag in combat
 
+    -- Check modifier key requirement (get from TotalUI settings)
+    local E = _G.TotalUI
+    if E and E.db and E.db.actionbar then
+        local modifierKey = E.db.actionbar.movementModifier or "NONE"
+
+        -- Check if required modifier is pressed
+        local modifierPressed = false
+        if modifierKey == "SHIFT" then
+            modifierPressed = IsShiftKeyDown()
+        elseif modifierKey == "ALT" then
+            modifierPressed = IsAltKeyDown()
+        elseif modifierKey == "CTRL" then
+            modifierPressed = IsControlKeyDown()
+        elseif modifierKey == "NONE" then
+            modifierPressed = true  -- No modifier required
+        end
+
+        -- If modifier not pressed, don't allow drag
+        if not modifierPressed then
+            return
+        end
+    end
+
     -- Pick up the action based on button type
     if button.buttonType == self.ButtonType.ACTION then
         if button.action then

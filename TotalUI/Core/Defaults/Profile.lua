@@ -121,7 +121,7 @@ E.ProfileDefaults = {
             -- Positioning
             point = "BOTTOM",
             xOffset = 0,
-            yOffset = 4,
+            yOffset = 50,  -- Higher to show gryphons/wyverns below
 
             -- Paging (class-specific action page switching)
             paging = true,
@@ -178,7 +178,7 @@ E.ProfileDefaults = {
             visibility = "[petbattle][vehicleui][overridebar] hide; show",
             point = "BOTTOM",
             xOffset = 0,
-            yOffset = 40,
+            yOffset = 90,  -- Adjusted to stack above Bar 1
             hotkeytext = true,
             macrotext = true,
             counttext = true,
@@ -200,7 +200,7 @@ E.ProfileDefaults = {
             visibility = "[petbattle][vehicleui][overridebar] hide; show",
             point = "BOTTOM",
             xOffset = 0,
-            yOffset = 76,
+            yOffset = 130,  -- Adjusted to stack above Bar 2
             hotkeytext = true,
             macrotext = true,
             counttext = true,
