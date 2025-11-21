@@ -922,6 +922,375 @@ TotalUI:   Bar 5: Enabled
 
 ---
 
+## Phase 1C: ActionBars - Global Settings GUI Tests
+
+### Prerequisites
+- Phase 1A and 1B tests must all pass
+- TotalUI_Options addon must be enabled
+- `/reload` to ensure options addon is loaded
+
+---
+
+### Test 53: Open Config GUI
+**Command:** `/totalui config`
+
+**Expected:**
+- TotalUI Configuration window opens
+- Left navigation shows: General, ActionBars, UnitFrames (disabled), etc.
+- Top tabs show: Global, ActionBars 1-15, Special Action Bars
+- Global tab is selected by default
+
+**Result:**
+- ✅ **Pass** if config GUI opens with nested navigation
+- ❌ **Fail** if GUI doesn't open or missing navigation elements
+
+---
+
+### Test 54: Basic Settings - Enable ActionBars
+**Steps:**
+1. Open config: `/totalui config`
+2. Click "ActionBars" in left nav (if not already selected)
+3. Ensure "Global" tab is selected
+4. Find "Enable ActionBars" checkbox
+5. Uncheck it - bars should hide
+6. Re-check it - bars should reappear
+
+**Expected:**
+- Checkbox toggles bars visibility immediately
+- No reload required
+
+**Result:**
+- ✅ **Pass** if checkbox works instantly
+- ❌ **Fail** if no effect or requires reload
+
+---
+
+### Test 55: Basic Settings - Preserve Default Appearance (TotalUI-Specific)
+**Steps:**
+1. In Global tab, find "Preserve Default Appearance" checkbox
+2. Check it
+3. Verify action bars keep default WoW visual appearance
+4. Test that behavioral settings still work (cooldown, keybinds, etc.)
+
+**Expected:**
+- Checking preserves original WoW button textures and styling
+- Behavioral enhancements remain functional
+- Unchecking restores TotalUI styling
+
+**Result:**
+- ✅ **Pass** if appearance toggles correctly
+- ❌ **Fail** if no visual change or breaks functionality
+
+---
+
+### Test 56: Basic Settings - Lock ActionBars
+**Steps:**
+1. In Global tab, find "Lock ActionBars" checkbox
+2. Uncheck it
+3. Try to drag/move action bars
+4. Re-check it
+5. Try to drag/move action bars (should be locked)
+
+**Expected:**
+- Unchecked: Bars can be moved with mouse
+- Checked: Bars cannot be moved
+
+**Result:**
+- ✅ **Pass** if lock prevents movement
+- ❌ **Fail** if bars always movable or always locked
+
+---
+
+### Test 57: Appearance - Global Fade Alpha & Transparent Settings
+**Steps:**
+1. Find "Global Fade Alpha" slider
+2. Set to 0.5, verify bars become semi-transparent
+3. Find "Transparent Buttons" checkbox, toggle it
+4. Find "Transparent Backdrops" checkbox, toggle it
+5. Verify visual changes to button backgrounds and bar backdrops
+
+**Expected:**
+- Fade alpha slider changes bar transparency (0=invisible, 1=opaque)
+- Transparent Buttons removes button background texture
+- Transparent Backdrops removes bar backdrop panel
+
+**Result:**
+- ✅ **Pass** if all three settings produce visual changes
+- ❌ **Fail** if no visual effect
+
+---
+
+### Test 58: Appearance - Handle Overlay & Equipped Item
+**Steps:**
+1. Find "Handle Overlay" checkbox, toggle it
+2. Observe button corner overlay changes
+3. Find "Equipped Item Highlight" checkbox, ensure checked
+4. Equip an item that's on your action bar
+5. Verify green/blue border glow on equipped item
+6. Find "Equipped Item Color" color picker, change color
+7. Verify equipped item border changes color
+
+**Expected:**
+- Handle Overlay shows/hides button corner decorations
+- Equipped items get colored border glow
+- Color picker changes the glow color
+
+**Result:**
+- ✅ **Pass** if all appearance options work
+- ❌ **Fail** if no visual changes
+
+---
+
+### Test 59: Cooldowns - Desaturate & Flash Settings
+**Steps:**
+1. Find "Desaturate on Cooldown" checkbox, ensure checked
+2. Find "Hide Cooldown Bling" checkbox, test both states
+3. Find "Flash Animation" checkbox, test toggle
+4. Cast spell with cooldown, verify each setting's effect
+
+**Expected:**
+- Desaturate: Icon turns grayscale during cooldown
+- Hide Bling: Flash animation on cooldown end is hidden
+- Flash Animation: Spell proc flash on button
+
+**Result:**
+- ✅ **Pass** if all cooldown appearance settings work
+- ❌ **Fail** if effects don't apply
+
+---
+
+### Test 60: Cooldowns - Charge Cooldown & Swipe Colors
+**Steps:**
+1. Find "Charge Cooldown" checkbox, ensure checked
+2. Find "Draw Swipe on Charges" checkbox, toggle it
+3. Use spell with charges (e.g., Warlock's Conflagrate)
+4. Verify charge cooldown displays correctly
+5. Find "Swipe Color (Normal)" color picker, change it
+6. Find "Swipe Color (LOC)" color picker, change it
+7. Cast spell, verify swipe color matches
+
+**Expected:**
+- Charge Cooldown shows individual charge recharge timers
+- Draw Swipe displays swipe animation for charges
+- Color pickers change the cooldown swipe colors
+- LOC color applies to loss-of-control effects
+
+**Result:**
+- ✅ **Pass** if charge cooldowns and colors work
+- ❌ **Fail** if settings don't affect display
+
+---
+
+### Test 61: Button Colors - Range, Power, Usability
+**Steps:**
+1. Find button color pickers: "Out of Range", "No Power", "Not Usable", "Usable"
+2. Change each color
+3. Test with appropriate spells:
+   - Out of Range: Target enemy far away
+   - No Power: Cast spell without enough mana
+   - Not Usable: Use ability that's unusable (wrong target, etc.)
+   - Usable: Normal spell ready to cast
+4. Find "Apply Range Color to Text" checkbox, toggle it
+
+**Expected:**
+- Each color picker changes button tint for that state
+- Range color to text applies coloring to button text as well
+- Colors update in real-time
+
+**Result:**
+- ✅ **Pass** if all 5 color settings work
+- ❌ **Fail** if colors don't apply or incorrect states
+
+---
+
+### Test 62: Cast Modifiers
+**Steps:**
+1. Find "Check Self Cast" checkbox
+2. Find "Check Focus Cast" checkbox
+3. Find "Right Click Self Cast" checkbox
+4. Test spell with each setting:
+   - Self Cast: Hold modifier + click spell
+   - Focus Cast: Cast spell on focus target
+   - Right Click: Right-click spell to self-cast
+
+**Expected:**
+- Check Self Cast: Detects self-cast modifier for button coloring
+- Check Focus Cast: Detects focus-cast modifier for button coloring
+- Right Click Self Cast: Right-click casts spell on yourself
+
+**Result:**
+- ✅ **Pass** if modifiers work as expected
+- ❌ **Fail** if settings don't affect casting behavior
+
+---
+
+### Test 63: Movement & Misc - Movement Modifier & Flyout Size
+**Steps:**
+1. Find "Movement Modifier" dropdown (NONE, SHIFT, CTRL, ALT)
+2. Set to "SHIFT"
+3. Unlock bars, verify must hold SHIFT to move bars
+4. Find "Flyout Button Size" slider
+5. Set to different values (20-60)
+6. Open a flyout menu (spell with multiple ranks/options)
+7. Verify flyout button size matches slider value
+
+**Expected:**
+- Movement Modifier requires holding key to move unlocked bars
+- Flyout Size slider changes size of flyout menu buttons
+
+**Result:**
+- ✅ **Pass** if both settings work
+- ❌ **Fail** if modifier ignored or flyout size doesn't change
+
+---
+
+### Test 64: Profession Quality (Retail Only)
+**Steps:**
+1. Find "Show Profession Quality" checkbox
+2. Find quality settings: Anchor Point, X/Y Offset, Scale, Alpha
+3. Have a crafted item with quality on action bar
+4. Toggle "Show Profession Quality" - indicator should show/hide
+5. Change Anchor Point - indicator position changes
+6. Adjust X/Y Offset - fine-tune position
+7. Change Scale - indicator size changes
+8. Change Alpha - indicator transparency changes
+
+**Expected:**
+- All 6 profession quality settings affect the quality indicator
+- Changes apply immediately
+- (Classic/TBC: Settings exist but have no effect - that's OK)
+
+**Result:**
+- ✅ **Pass** if all 6 settings work on Retail
+- ✅ **Pass** on Classic if settings don't error (no effect expected)
+- ❌ **Fail** if errors occur or settings don't work on Retail
+
+---
+
+### Test 65: Default Font Settings
+**Steps:**
+1. Scroll to "Default Font Settings" section
+2. Note: Small gray text says "Applied to all bars unless overridden"
+3. Find "Font" dropdown with options: Friz Quadrata TT, Arial Narrow, Skurri, Morpheus
+4. Change font, verify text on action bars changes
+5. Find "Font Size" slider (6-32)
+6. Change size, verify button text size changes
+7. Find "Font Outline" dropdown: NONE, OUTLINE, THICKOUTLINE, MONOCHROME
+8. Change outline, verify text outline changes
+
+**Expected:**
+- Font dropdown changes the font face of all bar text
+- Font Size slider changes text size globally
+- Font Outline changes text outline style
+- Changes apply to hotkey, macro, and count text on buttons
+- Individual bar settings can override these defaults
+
+**Result:**
+- ✅ **Pass** if all 3 font settings work and affect bar text
+- ❌ **Fail** if settings don't change text appearance
+
+---
+
+### Test 66: Settings Persistence
+**Steps:**
+1. Change several Global settings to non-default values:
+   - Set Global Fade Alpha to 0.7
+   - Enable Preserve Default Appearance
+   - Disable Transparent Buttons
+   - Change Swipe Color (Normal) to red
+   - Set Font Size to 16
+2. Type `/reload`
+3. Open config: `/totalui config`
+4. Navigate to Global tab
+5. Verify all changed settings retained their values
+
+**Expected:**
+- All settings persist across reload
+- Values are exactly as set before reload
+- No reset to defaults
+
+**Result:**
+- ✅ **Pass** if all settings persist
+- ❌ **Fail** if any setting resets to default
+
+---
+
+### Test 67: Navigation - Tab Switching
+**Steps:**
+1. Open config: `/totalui config`
+2. Click "Global" tab - verify Global settings panel shows
+3. Click "ActionBars 1-15" tab - verify secondary left nav appears with Bar 1-15
+4. Click "Special Action Bars" tab - verify secondary nav shows Pet Bar, Stance Bar, etc.
+5. Click individual bars in secondary nav
+6. Return to "Global" tab - verify secondary nav hides
+
+**Expected:**
+- Tab switching works smoothly
+- Secondary navigation shows/hides appropriately
+- Content area adjusts width based on secondary nav visibility
+- No errors or visual glitches
+
+**Result:**
+- ✅ **Pass** if navigation works perfectly
+- ❌ **Fail** if tabs don't switch, nav doesn't show/hide, or errors occur
+
+---
+
+### Test 68: Dynamic Tab Sizing
+**Steps:**
+1. Open config: `/totalui config`
+2. Observe the three top tabs: "Global", "ActionBars 1-15", "Special Action Bars"
+3. Verify text is not truncated
+4. Verify tabs are properly sized (not too small, not overlapping)
+
+**Expected:**
+- Tab width adjusts based on text content
+- All text fully visible
+- Tabs have appropriate spacing between them
+
+**Result:**
+- ✅ **Pass** if tabs are properly sized and readable
+- ❌ **Fail** if text truncated or tabs overlap
+
+---
+
+## Phase 1C Summary
+
+**Total Tests:** 16 (Tests 53-68)
+
+**Required for Pass:** All 16 tests must pass
+
+**Phase 1C Deliverables:**
+- ✅ Comprehensive ConfigGUI with nested navigation
+- ✅ All 34 global ActionBar settings implemented
+  - 31 ElvUI-parity settings
+  - 3 TotalUI-specific settings (preserveDefaultAppearance, font settings)
+- ✅ Real-time setting updates (no reload required)
+- ✅ Settings persistence across reload/logout
+- ✅ Clean 3-tab navigation hierarchy
+- ✅ Dynamic tab sizing
+- ✅ Secondary nested navigation for individual bars
+
+**Global Settings Tested:**
+- **Basic Settings (3):** Enable, Preserve Default Appearance, Lock ActionBars
+- **Appearance (6):** Global Fade Alpha, Transparent Buttons, Transparent Backdrops, Handle Overlay, Equipped Item Highlight, Equipped Item Color
+- **Cooldowns (7):** Desaturate on Cooldown, Hide Cooldown Bling, Flash Animation, Charge Cooldown, Draw Swipe on Charges, Swipe Color (Normal), Swipe Color (LOC)
+- **Button Colors (5):** Out of Range, No Power, Not Usable, Usable, Apply Range Color to Text
+- **Cast Modifiers (3):** Check Self Cast, Check Focus Cast, Right Click Self Cast
+- **Movement & Misc (2):** Movement Modifier, Flyout Button Size
+- **Profession Quality (6):** Enable, Anchor Point, X Offset, Y Offset, Scale, Alpha
+- **Default Font Settings (3):** Font, Font Size, Font Outline
+
+**If Tests Fail:**
+1. Verify TotalUI_Options addon is enabled
+2. Check `/console scriptErrors 1` for Lua errors
+3. Ensure Phase 1A and 1B tests still pass
+4. Review ConfigGUI.lua and Profile.lua for the failed setting
+5. Test in both Retail and Classic if applicable
+6. Fix issue and rerun Phase 1C tests
+
+---
+
 ## Phase 2: UnitFrames Tests
 **Status:** Not yet implemented
 

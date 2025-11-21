@@ -314,6 +314,16 @@ local function CreateGlobalActionBarsPanel(parent)
     enableCB:SetPoint("TOPLEFT", leftX, yOffsetLeft)
     yOffsetLeft = yOffsetLeft - 30
 
+    -- Preserve Default Appearance (TotalUI-specific)
+    local preserveCB = CreateCheckbox(content, "Preserve Default Appearance", "Keep default WoW actionbar appearance while enabling behavioral enhancements",
+        function() return db.preserveDefaultAppearance end,
+        function(value)
+            db.preserveDefaultAppearance = value
+            if E.modules.ActionBars then E.modules.ActionBars:Update() end
+        end)
+    preserveCB:SetPoint("TOPLEFT", leftX, yOffsetLeft)
+    yOffsetLeft = yOffsetLeft - 30
+
     -- Lock ActionBars (left column)
     local lockCB = CreateCheckbox(content, "Lock ActionBars", "Prevent action bars from being moved",
         function() return db.lockActionBars end,
@@ -682,6 +692,52 @@ local function CreateGlobalActionBarsPanel(parent)
         end,
         "Transparency of quality indicator")
     profAlphaSlider:SetPoint("TOPLEFT", rightX, yOffsetRight)
+    yOffsetRight = yOffsetRight - 60
+
+    -----------------------------------
+    -- DEFAULT FONT SETTINGS SECTION (Right Column)
+    -----------------------------------
+    CreateSectionHeader(content, "Default Font Settings", yOffsetRight, rightX)
+    yOffsetRight = yOffsetRight - 30
+
+    local fontNote = content:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    fontNote:SetPoint("TOPLEFT", rightX, yOffsetRight)
+    fontNote:SetText("|cff808080Applied to all bars unless overridden|r")
+    yOffsetRight = yOffsetRight - 25
+
+    -- Font Face
+    local fontDD = CreateDropdown(content, "Font",
+        {"Friz Quadrata TT", "Arial Narrow", "Skurri", "Morpheus"},
+        function() return db.font end,
+        function(value)
+            db.font = value
+            if E.modules.ActionBars then E.modules.ActionBars:Update() end
+        end,
+        "Default font face for action bar text")
+    fontDD:SetPoint("TOPLEFT", rightX, yOffsetRight)
+    yOffsetRight = yOffsetRight - 50
+
+    -- Font Size
+    local fontSizeSlider = CreateSlider(content, "Font Size", 6, 32, 1,
+        function() return db.fontSize end,
+        function(value)
+            db.fontSize = value
+            if E.modules.ActionBars then E.modules.ActionBars:Update() end
+        end,
+        "Default font size for action bar text")
+    fontSizeSlider:SetPoint("TOPLEFT", rightX, yOffsetRight)
+    yOffsetRight = yOffsetRight - 50
+
+    -- Font Outline
+    local fontOutlineDD = CreateDropdown(content, "Font Outline",
+        {"NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME"},
+        function() return db.fontOutline end,
+        function(value)
+            db.fontOutline = value
+            if E.modules.ActionBars then E.modules.ActionBars:Update() end
+        end,
+        "Default font outline style")
+    fontOutlineDD:SetPoint("TOPLEFT", rightX, yOffsetRight)
     yOffsetRight = yOffsetRight - 50
 
     -- Set scroll child height based on content

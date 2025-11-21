@@ -43,6 +43,9 @@ E.ProfileDefaults = {
     actionbar = {
         enable = true,
 
+        -- TotalUI-specific: Preserve default WoW appearance while keeping behavioral enhancements
+        preserveDefaultAppearance = false,
+
         -- Global settings
         lockActionBars = false,
         globalFadeAlpha = 1,
@@ -75,6 +78,11 @@ E.ProfileDefaults = {
 
         -- Movement
         movementModifier = "NONE",  -- NONE, SHIFT, CTRL, ALT
+
+        -- Default Font Settings (applied to all bars unless overridden)
+        font = "Friz Quadrata TT",
+        fontSize = 12,
+        fontOutline = "OUTLINE",  -- NONE, OUTLINE, THICKOUTLINE, MONOCHROME
 
         -- Profession Quality (Retail)
         professionQuality = {
